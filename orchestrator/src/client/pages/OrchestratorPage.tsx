@@ -50,6 +50,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { copyTextToClipboard, formatJobForWebhook } from "@client/lib/jobCopy";
 import { PipelineProgress, DiscoveredPanel } from "../components";
+import { ReadyPanel } from "../components/ReadyPanel";
 import * as api from "../api";
 import { TailoringEditor } from "../components/TailoringEditor";
 import type { Job, JobSource, JobStatus } from "../../shared/types";
@@ -911,6 +912,30 @@ export const OrchestratorPage: React.FC = () => {
                   const currentIndex = activeJobs.findIndex((j) => j.id === jobId);
                   const nextJob = activeJobs[currentIndex + 1] || activeJobs[currentIndex - 1];
                   setSelectedJobId(nextJob?.id ?? null);
+                }}
+              />
+            ) : activeTab === "ready" ? (
+              /* ReadyPanel for Ready tab - shipping lane workflow: verify → download → apply → mark applied */
+              <ReadyPanel
+                job={selectedJob}
+                onJobUpdated={loadJobs}
+                onJobMoved={(jobId) => {
+                  // Select next job in list after current one is moved
+                  const currentIndex = activeJobs.findIndex((j) => j.id === jobId);
+                  const nextJob = activeJobs[currentIndex + 1] || activeJobs[currentIndex - 1];
+                  setSelectedJobId(nextJob?.id ?? null);
+                }}
+                onEditTailoring={() => {
+                  setActiveTab("discovered");
+                  // Brief delay to let tab switch, then we're showing generic panel with tailoring
+                  setTimeout(() => setDetailTab("tailoring"), 50);
+                }}
+                onEditDescription={() => {
+                  setActiveTab("discovered");
+                  setTimeout(() => {
+                    setDetailTab("description");
+                    setIsEditingDescription(true);
+                  }, 50);
                 }}
               />
             ) : !selectedJob ? (
