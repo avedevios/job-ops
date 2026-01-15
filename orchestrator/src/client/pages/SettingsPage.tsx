@@ -3,9 +3,10 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react"
-import { Trash2 } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Settings, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
+import { PageHeader } from "../components/layout"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -354,14 +355,17 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <main className="container mx-auto max-w-3xl space-y-6 px-4 py-6 pb-12">
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Configure runtime behavior for this app.</p>
-      </div>
+    <>
+      <PageHeader
+        icon={Settings}
+        title="Settings"
+        subtitle="Configure runtime behavior for this app."
+        nav={[{ icon: ArrowLeft, label: "Back to Orchestrator", to: "/" }]}
+      />
 
-      <Accordion type="multiple" className="w-full space-y-4">
-        <AccordionItem value="model" className="border rounded-lg px-4">
+      <main className="container mx-auto max-w-3xl space-y-6 px-4 py-6 pb-12">
+        <Accordion type="multiple" className="w-full space-y-4">
+          <AccordionItem value="model" className="border rounded-lg px-4">
           <AccordionTrigger className="hover:no-underline py-4">
             <span className="text-base font-semibold">Model</span>
           </AccordionTrigger>
@@ -896,15 +900,18 @@ export const SettingsPage: React.FC = () => {
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="danger-zone" className="border rounded-lg px-4 border-destructive/20 bg-destructive/5">
+        <AccordionItem value="danger-zone" className="border rounded-lg px-4 border-red-500/30 bg-red-500/5 mt-4">
           <AccordionTrigger className="hover:no-underline py-4">
-            <span className="text-base font-semibold text-destructive">Danger Zone</span>
+            <div className="flex items-center gap-2 text-red-500">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-base font-semibold tracking-wider">Danger Zone</span>
+            </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
-            <div className="space-y-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-4 pt-2">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-3 rounded-md">
                 <div className="space-y-0.5">
-                  <div className="text-sm font-medium">Clear Discovered Jobs</div>
+                  <div className="text-sm font-semibold text-red-500">Clear Discovered Jobs</div>
                   <div className="text-xs text-muted-foreground">
                     Delete all jobs with the status "discovered". Ready, applied, and skipped jobs are kept.
                   </div>
@@ -925,7 +932,7 @@ export const SettingsPage: React.FC = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearDiscovered} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction onClick={handleClearDiscovered} className="bg-red-500 text-red-500-foreground hover:bg-red-500/90">
                         Clear discovered
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -933,11 +940,9 @@ export const SettingsPage: React.FC = () => {
                 </AlertDialog>
               </div>
 
-              <Separator className="bg-destructive/10" />
-
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-3 rounded-md">
                 <div className="space-y-0.5">
-                  <div className="text-sm font-medium">Clear Database</div>
+                  <div className="text-sm font-semibold text-red-500">Clear Database</div>
                   <div className="text-xs text-muted-foreground">
                     Delete all jobs and pipeline runs from the database.
                   </div>
@@ -958,7 +963,7 @@ export const SettingsPage: React.FC = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleClearDatabase} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction onClick={handleClearDatabase} className="bg-red-500 text-red-500 hover:bg-red-500/90">
                         Clear database
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -979,5 +984,6 @@ export const SettingsPage: React.FC = () => {
         </Button>
       </div>
     </main>
+    </>
   )
 }
