@@ -32,6 +32,8 @@ Essential variables in `.env`:
 - `/extractors`: Specialized scrapers (Gradcracker, JobSpy, UKVisaJobs).
 - `/resume-generator`: Python script for RxResume PDF automation.
 - `/data`: Persistent storage for SQLite DB and generated PDFs.
+
+Technical breakdowns here: `documentation/extractors/README.md`
 2. Put your exported RXResume JSON at `resume-generator/base.json`.
 3. Start: `docker compose up -d --build`
 4. Open:
