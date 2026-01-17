@@ -9,6 +9,12 @@ AI-powered job discovery and application pipeline. Automatically finds jobs, sco
 4. **Export**: Automates [RxResume](https://rxresu.me) to create tailored PDFs.
 5. **Manage**: Review and mark jobs as "Applied" via the dashboard (syncs to Notion).
 
+## Example of generating a tailored resume for a job
+https://github.com/user-attachments/assets/5b9157a9-13b0-4ec6-9bd2-a39dbc2b11c5
+
+## Example of applying to a Ready job
+https://github.com/user-attachments/assets/07345b4f-71bf-4921-989d-fcf60aeb2518
+
 ## Quick Start
 ```bash
 # 1. Setup environment
