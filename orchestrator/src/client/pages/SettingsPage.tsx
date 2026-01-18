@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react"
-import { AlertTriangle, ArrowLeft, Settings, Trash2 } from "lucide-react"
+import { AlertTriangle, Settings, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "../components/layout"
@@ -418,7 +418,6 @@ export const SettingsPage: React.FC = () => {
         icon={Settings}
         title="Settings"
         subtitle="Configure runtime behavior for this app."
-        nav={[{ icon: ArrowLeft, label: "Back to Orchestrator", to: "/" }]}
       />
 
       <main className="container mx-auto max-w-3xl space-y-6 px-4 py-6 pb-12">

@@ -4,7 +4,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Briefcase,
   Calendar,
   ChevronLeft,
@@ -14,12 +13,15 @@ import {
   DollarSign,
   ExternalLink,
   GraduationCap,
+  Home,
   Loader2,
   MapPin,
+  Menu,
   Search,
   Settings,
+  Shield,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +30,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Drawer, DrawerClose, DrawerContent } from "@/components/ui/drawer";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import * as api from "../api";
 import type { CreateJobInput } from "../../shared/types";
@@ -72,7 +81,16 @@ const clampText = (value: string, max = 160) => (value.length > max ? `${value.s
 
 const jobKey = (job: CreateJobInput) => job.sourceJobId || job.jobUrl;
 
+const navLinks = [
+  { to: "/", label: "Dashboard", icon: Home },
+  { to: "/visa-sponsors", label: "Visa Sponsors", icon: Shield },
+  { to: "/ukvisajobs", label: "UK Visa Jobs", icon: Briefcase },
+  { to: "/settings", label: "Settings", icon: Settings },
+];
+
 export const UkVisaJobsPage: React.FC = () => {
+  const location = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
   const [searchTermInput, setSearchTermInput] = useState("");
   const [activeSearchTerm, setActiveSearchTerm] = useState<string | null>(null);
   const [results, setResults] = useState<CreateJobInput[]>([]);
@@ -333,8 +351,40 @@ export const UkVisaJobsPage: React.FC = () => {
   return (
     <>
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <div className="container mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Sheet open={navOpen} onOpenChange={setNavOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Open navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64">
+                <SheetHeader>
+                  <SheetTitle>Navigation</SheetTitle>
+                </SheetHeader>
+                <nav className="mt-6 flex flex-col gap-2">
+                  {navLinks.map(({ to, label, icon: Icon }) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      onClick={() => setNavOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                        location.pathname === to
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </Link>
+                  ))}
+                </nav>
+              </SheetContent>
+            </Sheet>
+
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-muted/30">
               <Briefcase className="h-4 w-4 text-muted-foreground" />
             </div>
@@ -342,22 +392,9 @@ export const UkVisaJobsPage: React.FC = () => {
               <div className="text-sm font-semibold tracking-tight">UK Visa Jobs</div>
               <div className="text-xs text-muted-foreground">Live search console</div>
             </div>
-            <Badge variant="outline" className="uppercase tracking-wide">
+            <Badge variant="outline" className="hidden sm:inline-flex uppercase tracking-wide">
               API search
             </Badge>
-          </div>
-
-          <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
-            <Button asChild variant="ghost" size="icon" aria-label="Back to orchestrator">
-              <Link to="/">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" size="icon" aria-label="Settings">
-              <Link to="/settings">
-                <Settings className="h-4 w-4" />
-              </Link>
-            </Button>
           </div>
         </div>
       </header>

@@ -16,7 +16,6 @@ import {
   MapPin,
   Search,
   Shield,
-  Sparkles,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -320,7 +319,6 @@ export const VisaSponsorsPage: React.FC = () => {
         title="Visa Sponsors"
         subtitle="UK Register Search"
         statusIndicator={isUpdateInProgress ? <StatusIndicator label="Updating" /> : undefined}
-        nav={[{ icon: Sparkles, label: "Back to Orchestrator", to: "/" }]}
         actions={
           <>
             {status && (

@@ -4,28 +4,19 @@
 
 import React from "react";
 import {
+  Briefcase,
   ChevronDown,
+  Home,
   Loader2,
+  Menu,
   Play,
   RefreshCcw,
   Settings,
   Shield,
-  Trash2,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -35,6 +26,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import type { JobSource } from "../../shared/types";
 
 interface HeaderProps {
@@ -54,6 +52,9 @@ export const Header: React.FC<HeaderProps> = ({
   pipelineSources,
   onPipelineSourcesChange,
 }) => {
+  const location = useLocation();
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+
   const sourceLabel: Record<JobSource, string> = {
     gradcracker: "Gradcracker",
     indeed: "Indeed",
@@ -62,6 +63,13 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const orderedSources: JobSource[] = ["gradcracker", "indeed", "linkedin", "ukvisajobs"];
+
+  const navLinks = [
+    { to: "/", label: "Dashboard", icon: Home },
+    { to: "/visa-sponsors", label: "Visa Sponsors", icon: Shield },
+    { to: "/ukvisajobs", label: "UK Visa Jobs", icon: Briefcase },
+    { to: "/settings", label: "Settings", icon: Settings },
+  ];
 
   const toggleSource = (source: JobSource, checked: boolean) => {
     const next = checked
@@ -75,22 +83,55 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className='sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
       <div className='container mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4'>
-        <Link
-          to='/'
-          className='flex items-center gap-3 hover:opacity-80 transition-opacity'
-        >
-          <div className='flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-transparent shadow-sm'>
-            <img
-              src='/favicon.png'
-              alt='Job Ops Logo'
-              className='h-full w-full object-contain'
-            />
-          </div>
-          <div className='leading-tight'>
-            <div className='text-sm font-semibold tracking-tight'>Job Ops</div>
-            <div className='text-xs text-muted-foreground'>Orchestrator</div>
-          </div>
-        </Link>
+        <div className='flex items-center gap-3'>
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant='ghost' size='icon'>
+                <Menu className='h-5 w-5' />
+                <span className='sr-only'>Open navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side='left' className='w-64'>
+              <SheetHeader>
+                <SheetTitle>Navigation</SheetTitle>
+              </SheetHeader>
+              <nav className='mt-6 flex flex-col gap-2'>
+                {navLinks.map(({ to, label, icon: Icon }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={() => setSheetOpen(false)}
+                    className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
+                      location.pathname === to
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Icon className='h-4 w-4' />
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
+          <Link
+            to='/'
+            className='flex items-center gap-3 hover:opacity-80 transition-opacity'
+          >
+            <div className='flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-transparent shadow-sm'>
+              <img
+                src='/favicon.png'
+                alt='Job Ops Logo'
+                className='h-full w-full object-contain'
+              />
+            </div>
+            <div className='leading-tight'>
+              <div className='text-sm font-semibold tracking-tight'>Job Ops</div>
+              <div className='text-xs text-muted-foreground'>Orchestrator</div>
+            </div>
+          </Link>
+        </div>
 
         <div className='flex flex-wrap items-center gap-1.5'>
           <Button
@@ -101,28 +142,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <RefreshCcw className='h-4 w-4' />
             <span className='hidden sm:inline'>Refresh</span>
-          </Button>
-
-          <Button
-            asChild
-            variant='outline'
-            size='sm'
-          >
-            <Link to='/visa-sponsors'>
-              <Shield className='h-4 w-4' />
-              <span className='hidden sm:inline'>Visa Sponsors</span>
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant='outline'
-            size='sm'
-          >
-            <Link to='/settings'>
-              <Settings className='h-4 w-4' />
-              <span className='hidden sm:inline'>Settings</span>
-            </Link>
           </Button>
 
           <div>
