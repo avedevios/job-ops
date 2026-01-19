@@ -12,6 +12,7 @@ import { runPipeline, processJob, summarizeJob, generateFinalPdf, getPipelineSta
 import { createNotionEntry } from '../services/notion.js';
 import { fetchUkVisaJobsPage } from '../services/ukvisajobs.js';
 import { inferManualJobDetails } from '../services/manualJob.js';
+import { scoreJobSuitability } from '../services/scorer.js';
 import { clearDatabase } from '../db/clear.js';
 import {
   extractProjectsFromProfile,
@@ -469,7 +470,7 @@ apiRouter.patch('/settings', async (req: Request, res: Response) => {
       if (resumeProjects === null) {
         await settingsRepo.setSetting('resumeProjects', null);
       } else {
-        const profile = await loadResumeProfile();
+        const profile = (await loadResumeProfile()) as Record<string, unknown>;
         const { catalog } = extractProjectsFromProfile(profile);
         const allowed = new Set(catalog.map((p) => p.id));
         const normalized = normalizeResumeProjectsSettings(resumeProjects, allowed);
@@ -837,6 +838,20 @@ apiRouter.post('/manual-jobs/import', async (req: Request, res: Response) => {
       degreeRequired: cleanOptional(job.degreeRequired) ?? undefined,
       starting: cleanOptional(job.starting) ?? undefined,
     });
+
+    // Score asynchronously so the import returns immediately.
+    (async () => {
+      try {
+        const profile = (await loadResumeProfile()) as Record<string, unknown>;
+        const { score, reason } = await scoreJobSuitability(createdJob, profile);
+        await jobsRepo.updateJob(createdJob.id, {
+          suitabilityScore: score,
+          suitabilityReason: reason,
+        });
+      } catch (error) {
+        console.warn('Manual job scoring failed:', error);
+      }
+    })();
 
     res.json({ success: true, data: createdJob });
   } catch (error) {
