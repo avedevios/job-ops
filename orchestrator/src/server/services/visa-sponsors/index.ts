@@ -6,10 +6,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { getDataDir } from '../../config/dataDir.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, '../../../../data/visa-sponsors');
+const DATA_DIR = path.join(getDataDir(), 'visa-sponsors');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {

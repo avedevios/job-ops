@@ -12,14 +12,13 @@ import { existsSync } from 'fs';
 import { getSetting } from '../repositories/settings.js';
 import { pickProjectIdsForJob } from './projectSelection.js';
 import { extractProjectsFromProfile, resolveResumeProjectsSettings } from './resumeProjects.js';
+import { getDataDir } from '../config/dataDir.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Paths - can be overridden via env for Docker
 const RESUME_GEN_DIR = process.env.RESUME_GEN_DIR || join(__dirname, '../../../../resume-generator');
-const OUTPUT_DIR = process.env.DATA_DIR 
-  ? join(process.env.DATA_DIR, 'pdfs')
-  : join(__dirname, '../../../data/pdfs');
+const OUTPUT_DIR = join(getDataDir(), 'pdfs');
 
 export interface PdfResult {
   success: boolean;

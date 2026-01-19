@@ -9,6 +9,7 @@ import { readFile, mkdir, unlink } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { CreateJobInput, JobSource } from '../../shared/types.js';
+import { getDataDir } from '../config/dataDir.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JOBSPY_DIR = join(__dirname, '../../../../extractors/jobspy');
@@ -17,11 +18,6 @@ const JOBSPY_SCRIPT = join(JOBSPY_DIR, 'scrape_jobs.py');
 function getPythonPath(): string {
   if (process.env.PYTHON_PATH) return process.env.PYTHON_PATH;
   return process.platform === 'win32' ? 'python' : 'python3';
-}
-
-function getDataDir(): string {
-  if (process.env.DATA_DIR) return process.env.DATA_DIR;
-  return join(__dirname, '../../../data');
 }
 
 function toStringOrNull(value: unknown): string | null {

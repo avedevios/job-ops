@@ -4,15 +4,11 @@
 
 import Database from 'better-sqlite3';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { getDataDir } from '../config/dataDir.js';
 
 // Database path - can be overridden via env for Docker
-const DB_PATH = process.env.DATA_DIR
-  ? join(process.env.DATA_DIR, 'jobs.db')
-  : join(__dirname, '../../../data/jobs.db');
+const DB_PATH = join(getDataDir(), 'jobs.db');
 
 // Ensure data directory exists
 const dataDir = dirname(DB_PATH);

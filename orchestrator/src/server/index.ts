@@ -2,15 +2,9 @@
  * Express server entry point.
  */
 
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { config } from 'dotenv';
+import './config/env.js';
 import { createApp } from './app.js';
 import { initialize as initializeVisaSponsors } from './services/visa-sponsors/index.js';
-
-// Load environment variables from orchestrator root
-const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: join(__dirname, '../../.env') });
 
 const app = createApp();
 const PORT = process.env.PORT || 3001;

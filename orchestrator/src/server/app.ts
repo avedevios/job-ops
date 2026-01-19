@@ -8,6 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { readFile } from 'fs/promises';
 import { apiRouter } from './api/index.js';
+import { getDataDir } from './config/dataDir.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -84,9 +85,7 @@ export function createApp() {
   app.use('/api', apiRouter);
 
   // Serve static files for generated PDFs
-  const pdfDir = process.env.DATA_DIR
-    ? join(process.env.DATA_DIR, 'pdfs')
-    : join(__dirname, '../../data/pdfs');
+  const pdfDir = join(getDataDir(), 'pdfs');
   app.use('/pdfs', express.static(pdfDir));
 
   // Health check

@@ -24,6 +24,7 @@ import * as pipelineRepo from '../repositories/pipeline.js';
 import * as settingsRepo from '../repositories/settings.js';
 import { progressHelpers, resetProgress, updateProgress } from './progress.js';
 import type { CreateJobInput, Job, JobSource, PipelineConfig } from '../../shared/types.js';
+import { getDataDir } from '../config/dataDir.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PROFILE_PATH = join(__dirname, '../../../../resume-generator/base.json');
@@ -33,7 +34,11 @@ const DEFAULT_CONFIG: PipelineConfig = {
   minSuitabilityScore: 50,
   sources: ['gradcracker', 'indeed', 'linkedin', 'ukvisajobs'],
   profilePath: DEFAULT_PROFILE_PATH,
-  outputDir: join(__dirname, '../../../data/pdfs'),
+  outputDir: join(getDataDir(), 'pdfs'),
+  enableCrawling: true,
+  enableScoring: true,
+  enableImporting: true,
+  enableAutoTailoring: true,
 };
 
 // Track if pipeline is currently running

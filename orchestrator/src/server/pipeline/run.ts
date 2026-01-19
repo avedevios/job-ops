@@ -5,12 +5,9 @@
  * Usage: npm run pipeline:run
  */
 
-import { config } from 'dotenv';
+import '../config/env.js';
 import { runPipeline } from './orchestrator.js';
 import { closeDb } from '../db/index.js';
-
-// Load environment variables
-config();
 
 async function main() {
   console.log('='.repeat(60));
