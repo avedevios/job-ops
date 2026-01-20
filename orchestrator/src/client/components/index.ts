@@ -5,7 +5,7 @@ export { ScoreIndicator } from './ScoreIndicator';
 export { FitAssessment } from './FitAssessment';
 export { PipelineProgress } from './PipelineProgress';
 export { TailoringEditor } from './TailoringEditor';
-export { DiscoveredPanel } from './DiscoveredPanel';
+export { DiscoveredPanel } from './discovered-panel';
 export { ReadyPanel } from './ReadyPanel';
 export { ManualImportSheet } from './ManualImportSheet';
 export * from './layout';
