@@ -141,8 +141,14 @@ export async function generatePdf(
 
     // 5. Import as temporary resume
     console.log(`   Importing temporary resume for job ${jobId}...`);
+    const timestamp = new Date().getTime();
+    const tempName = `[TEMP] ${resumeData.basics?.name || 'Resume'} - ${jobId.slice(0, 8)} (${timestamp})`;
 
-    tempResumeId = await importResume(resumeData);
+    tempResumeId = await importResume({
+      name: tempName,
+      slug: `temp-${jobId}-${timestamp}`,
+      data: resumeData,
+    });
 
     if (!tempResumeId) {
       throw new Error('Failed to get ID for imported resume');
