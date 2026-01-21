@@ -215,8 +215,8 @@ export const ReadyPanel: React.FC<ReadyPanelProps> = ({
       setIsRegenerating(true);
       await api.generateJobPdf(job.id);
       toast.success("PDF regenerated");
-      setMode("ready");
       await onJobUpdated();
+      setMode("ready");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to regenerate PDF";
       toast.error(message);
@@ -282,7 +282,7 @@ export const ReadyPanel: React.FC<ReadyPanelProps> = ({
           <Button asChild variant="outline" className="h-9 w-full gap-1 px-2 text-xs">
             <a
               href={pdfHref}
-              download={`${personName.replace(/\s+/g, '_')}_${safeFilenamePart(job.employer)}.pdf`}
+              download={`${safeFilenamePart(personName)}_${safeFilenamePart(job.employer)}.pdf`}
             >
               <Download className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Download PDF</span>

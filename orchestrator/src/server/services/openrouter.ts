@@ -87,7 +87,12 @@ export async function callOpenRouter<T>(
             });
 
             if (!response.ok) {
-                throw new Error(`OpenRouter API error: ${response.status}`);
+                // Throw error with status to allow specific retries
+                const errorBody = await response.text().catch(() => 'No error body');
+                const err = new Error(`OpenRouter API error: ${response.status}`);
+                (err as any).status = response.status;
+                (err as any).body = errorBody;
+                throw err;
             }
 
             const data = await response.json();
@@ -104,10 +109,22 @@ export async function callOpenRouter<T>(
 
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
+            const status = (error as any).status;
 
-            // Only retry on parsing errors
-            if (attempt < maxRetries && message.includes('parse')) {
-                console.warn(`⚠️ [${jobId ?? 'unknown'}] Attempt ${attempt + 1} failed: ${message}`);
+            // Retry on:
+            // 1. Parsing errors (AI returned malformed JSON)
+            // 2. Rate limits (429)
+            // 3. Server errors (5xx)
+            // 4. Timeouts/Network issues
+            const shouldRetry = 
+                message.includes('parse') || 
+                status === 429 || 
+                (status >= 500 && status <= 599) ||
+                message.toLowerCase().includes('timeout') ||
+                message.toLowerCase().includes('fetch failed');
+
+            if (attempt < maxRetries && shouldRetry) {
+                console.warn(`⚠️ [${jobId ?? 'unknown'}] Attempt ${attempt + 1} failed (${status ?? 'no-status'}): ${message}. Retrying...`);
                 continue;
             }
 
@@ -129,9 +146,12 @@ export function parseJsonContent<T>(content: string, jobId?: string): T {
     candidate = candidate.replace(/```(?:json|JSON)?\s*/g, '').replace(/```/g, '').trim();
 
     // Try to extract JSON object if there's surrounding text
-    const jsonMatch = candidate.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        candidate = jsonMatch[0];
+    // Use non-greedy match and find the outermost braces
+    const firstBrace = candidate.indexOf('{');
+    const lastBrace = candidate.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        candidate = candidate.substring(firstBrace, lastBrace + 1);
     }
 
     try {

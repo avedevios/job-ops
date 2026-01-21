@@ -4,22 +4,11 @@ import { fileURLToPath } from 'url';
 
 import type { ResumeProjectCatalogItem, ResumeProjectsSettings } from '../../shared/types.js';
 
-import { getProfile } from './profile.js';
+import { getProfile, DEFAULT_PROFILE_PATH } from './profile.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const DEFAULT_RESUME_PROFILE_PATH =
-  process.env.RESUME_PROFILE_PATH || join(__dirname, '../../../../resume-generator/base.json');
-
 type ResumeProjectSelectionItem = ResumeProjectCatalogItem & { summaryText: string };
-
-export async function loadResumeProfile(profilePath: string = DEFAULT_RESUME_PROFILE_PATH): Promise<unknown> {
-  if (profilePath === DEFAULT_RESUME_PROFILE_PATH) {
-    return getProfile(profilePath);
-  }
-  const content = await readFile(profilePath, 'utf-8');
-  return JSON.parse(content) as unknown;
-}
 
 export function extractProjectsFromProfile(profile: unknown): {
   catalog: ResumeProjectCatalogItem[];

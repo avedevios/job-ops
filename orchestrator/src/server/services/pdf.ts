@@ -69,7 +69,7 @@ export async function generatePdf(
     if (baseResume.sections?.skills?.items && Array.isArray(baseResume.sections.skills.items)) {
       baseResume.sections.skills.items = baseResume.sections.skills.items.map((skill: any, index: number) => ({
         ...skill,
-        id: skill.id || `skill-${Date.now()}-${index}`,
+        id: skill.id || `skill-${index}`,
         visible: skill.visible ?? true,
         // Zod schema requires string, default to empty string if missing
         description: skill.description ?? '',
@@ -112,7 +112,7 @@ export async function generatePdf(
           const existing = existingSkills.find((s: any) => s.name === newSkill.name);
 
           return {
-            id: newSkill.id || existing?.id || `skill-${Date.now()}-${index}`,
+            id: newSkill.id || existing?.id || `skill-${index}`,
             visible: newSkill.visible !== undefined ? newSkill.visible : (existing?.visible ?? true),
             name: newSkill.name || existing?.name || '',
             description: newSkill.description !== undefined ? newSkill.description : (existing?.description || ''),

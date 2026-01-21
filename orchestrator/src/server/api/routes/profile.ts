@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { extractProjectsFromProfile, loadResumeProfile } from '../../services/resumeProjects.js';
+import { extractProjectsFromProfile } from '../../services/resumeProjects.js';
+import { getProfile } from '../../services/profile.js';
 
 export const profileRouter = Router();
 
@@ -8,7 +9,7 @@ export const profileRouter = Router();
  */
 profileRouter.get('/projects', async (req: Request, res: Response) => {
   try {
-    const profile = await loadResumeProfile();
+    const profile = await getProfile();
     const { catalog } = extractProjectsFromProfile(profile);
     res.json({ success: true, data: catalog });
   } catch (error) {
@@ -22,7 +23,7 @@ profileRouter.get('/projects', async (req: Request, res: Response) => {
  */
 profileRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const profile = await loadResumeProfile();
+    const profile = await getProfile();
     res.json({ success: true, data: profile });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
