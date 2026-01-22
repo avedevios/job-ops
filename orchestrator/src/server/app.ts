@@ -13,12 +13,19 @@ import { getDataDir } from './config/dataDir.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function createBasicAuthGuard() {
-  const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || '';
-  const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD || '';
-  const basicAuthEnabled = BASIC_AUTH_USER.length > 0 && BASIC_AUTH_PASSWORD.length > 0;
+  function getAuthConfig() {
+    const user = process.env.BASIC_AUTH_USER || '';
+    const pass = process.env.BASIC_AUTH_PASSWORD || '';
+    return {
+      user,
+      pass,
+      enabled: user.length > 0 && pass.length > 0,
+    };
+  }
 
   function isAuthorized(req: express.Request): boolean {
-    if (!basicAuthEnabled) return false;
+    const { user: authUser, pass: authPass, enabled } = getAuthConfig();
+    if (!enabled) return false;
     const authHeader = req.headers.authorization || '';
     if (!authHeader.startsWith('Basic ')) return false;
     const encoded = authHeader.slice('Basic '.length).trim();
@@ -32,7 +39,7 @@ function createBasicAuthGuard() {
     if (separatorIndex === -1) return false;
     const user = decoded.slice(0, separatorIndex);
     const pass = decoded.slice(separatorIndex + 1);
-    return user === BASIC_AUTH_USER && pass === BASIC_AUTH_PASSWORD;
+    return user === authUser && pass === authPass;
   }
 
   function isPublicReadOnlyRoute(method: string, path: string): boolean {
@@ -48,7 +55,8 @@ function createBasicAuthGuard() {
   }
 
   const middleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (!basicAuthEnabled || !requiresAuth(req.method, req.path)) return next();
+    const { enabled } = getAuthConfig();
+    if (!enabled || !requiresAuth(req.method, req.path)) return next();
     if (isAuthorized(req)) return next();
     res.setHeader('WWW-Authenticate', 'Basic realm="Job Ops"');
     res.status(401).send('Authentication required');
@@ -57,7 +65,7 @@ function createBasicAuthGuard() {
   return {
     middleware,
     isAuthorized,
-    basicAuthEnabled,
+    basicAuthEnabled: getAuthConfig().enabled,
   };
 }
 

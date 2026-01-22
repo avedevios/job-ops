@@ -3,10 +3,10 @@ import { useFormContext, Controller } from "react-hook-form"
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { UpdateSettingsInput } from "@shared/settings-schema"
 import type { JobspyValues } from "@client/pages/settings/types"
+import { SettingsInput } from "@client/pages/settings/components/SettingsInput"
 
 type JobspySectionProps = {
   values: JobspyValues
@@ -99,107 +99,85 @@ export const JobspySection: React.FC<JobspySectionProps> = ({
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Location</div>
-              <Input
-                {...register("jobspyLocation")}
-                placeholder={location.default || "UK"}
-                disabled={isLoading || isSaving}
-              />
-              {errors.jobspyLocation && <p className="text-xs text-destructive">{errors.jobspyLocation.message}</p>}
-              <div className="text-xs text-muted-foreground">
-                Location to search for jobs (e.g. "UK", "London", "Remote").
-              </div>
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span>Effective: {location.effective || "—"}</span>
-                <span>Default: {location.default || "—"}</span>
-              </div>
-            </div>
+            <SettingsInput
+              label="Location"
+              inputProps={register("jobspyLocation")}
+              placeholder={location.default || "UK"}
+              disabled={isLoading || isSaving}
+              error={errors.jobspyLocation?.message as string | undefined}
+              helper={'Location to search for jobs (e.g. "UK", "London", "Remote").'}
+              current={`Effective: ${location.effective || "—"} | Default: ${location.default || "—"}`}
+            />
 
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Results Wanted</div>
-              <Controller
-                name="jobspyResultsWanted"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={1000}
-                    value={field.value ?? resultsWanted.default}
-                    onChange={(event) => {
+            <Controller
+              name="jobspyResultsWanted"
+              control={control}
+              render={({ field }) => (
+                <SettingsInput
+                  label="Results Wanted"
+                  type="number"
+                  inputProps={{
+                    ...field,
+                    inputMode: "numeric",
+                    min: 1,
+                    max: 1000,
+                    value: field.value ?? resultsWanted.default,
+                    onChange: (event) => {
                       const value = parseInt(event.target.value, 10)
                       if (Number.isNaN(value)) {
                         field.onChange(null)
                       } else {
                         field.onChange(Math.min(1000, Math.max(1, value)))
                       }
-                    }}
-                    disabled={isLoading || isSaving}
-                  />
-                )}
-              />
-              {errors.jobspyResultsWanted && <p className="text-xs text-destructive">{errors.jobspyResultsWanted.message}</p>}
-              <div className="text-xs text-muted-foreground">
-                Number of results to fetch per term per site. Max 1000.
-              </div>
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span>Effective: {resultsWanted.effective}</span>
-                <span>Default: {resultsWanted.default}</span>
-              </div>
-            </div>
+                    },
+                  }}
+                  disabled={isLoading || isSaving}
+                  error={errors.jobspyResultsWanted?.message as string | undefined}
+                  helper={`Number of results to fetch per term per site. Default: ${resultsWanted.default}. Max 1000.`}
+                  current={`Effective: ${resultsWanted.effective} | Default: ${resultsWanted.default}`}
+                />
+              )}
+            />
 
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Hours Old</div>
-              <Controller
-                name="jobspyHoursOld"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={720}
-                    value={field.value ?? hoursOld.default}
-                    onChange={(event) => {
+            <Controller
+              name="jobspyHoursOld"
+              control={control}
+              render={({ field }) => (
+                <SettingsInput
+                  label="Hours Old"
+                  type="number"
+                  inputProps={{
+                    ...field,
+                    inputMode: "numeric",
+                    min: 1,
+                    max: 720,
+                    value: field.value ?? hoursOld.default,
+                    onChange: (event) => {
                       const value = parseInt(event.target.value, 10)
                       if (Number.isNaN(value)) {
                         field.onChange(null)
                       } else {
                         field.onChange(Math.min(720, Math.max(1, value)))
                       }
-                    }}
-                    disabled={isLoading || isSaving}
-                  />
-                )}
-              />
-              {errors.jobspyHoursOld && <p className="text-xs text-destructive">{errors.jobspyHoursOld.message}</p>}
-              <div className="text-xs text-muted-foreground">
-                Max age of jobs in hours (e.g. 72 for 3 days). Max 720 (30 days).
-              </div>
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span>Effective: {hoursOld.effective}h</span>
-                <span>Default: {hoursOld.default}h</span>
-              </div>
-            </div>
+                    },
+                  }}
+                  disabled={isLoading || isSaving}
+                  error={errors.jobspyHoursOld?.message as string | undefined}
+                  helper={`Max age of jobs in hours (e.g. 72 for 3 days). Default: ${hoursOld.default}. Max 720.`}
+                  current={`Effective: ${hoursOld.effective}h | Default: ${hoursOld.default}h`}
+                />
+              )}
+            />
 
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Indeed Country</div>
-              <Input
-                {...register("jobspyCountryIndeed")}
-                placeholder={countryIndeed.default || "UK"}
-                disabled={isLoading || isSaving}
-              />
-              {errors.jobspyCountryIndeed && <p className="text-xs text-destructive">{errors.jobspyCountryIndeed.message}</p>}
-              <div className="text-xs text-muted-foreground">
-                Country domain for Indeed (e.g. "UK" for indeed.co.uk).
-              </div>
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span>Effective: {countryIndeed.effective || "—"}</span>
-                <span>Default: {countryIndeed.default || "—"}</span>
-              </div>
-            </div>
+            <SettingsInput
+              label="Indeed Country"
+              inputProps={register("jobspyCountryIndeed")}
+              placeholder={countryIndeed.default || "UK"}
+              disabled={isLoading || isSaving}
+              error={errors.jobspyCountryIndeed?.message as string | undefined}
+              helper={'Country domain for Indeed (e.g. "UK" for indeed.co.uk).'}
+              current={`Effective: ${countryIndeed.effective || "—"} | Default: ${countryIndeed.default || "—"}`}
+            />
           </div>
 
           <Separator />

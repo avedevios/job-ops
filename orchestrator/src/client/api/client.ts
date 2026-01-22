@@ -198,6 +198,14 @@ export async function updateSettings(update: {
   jobspySites?: string[] | null
   jobspyLinkedinFetchDescription?: boolean | null
   showSponsorInfo?: boolean | null
+  openrouterApiKey?: string | null
+  rxresumeEmail?: string | null
+  rxresumePassword?: string | null
+  basicAuthUser?: string | null
+  basicAuthPassword?: string | null
+  ukvisajobsEmail?: string | null
+  ukvisajobsPassword?: string | null
+  webhookSecret?: string | null
 }): Promise<AppSettings> {
   return fetchApi<AppSettings>('/settings', {
     method: 'PATCH',

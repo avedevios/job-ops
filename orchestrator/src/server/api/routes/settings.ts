@@ -2,11 +2,15 @@ import { Router, Request, Response } from 'express';
 import { updateSettingsSchema } from '@shared/settings-schema.js';
 import * as settingsRepo from '@server/repositories/settings.js';
 import {
+  applyEnvValue,
+  normalizeEnvInput,
+} from '@server/services/envSettings.js';
+import {
   extractProjectsFromProfile,
   normalizeResumeProjectsSettings,
-  resolveResumeProjectsSettings,
 } from '@server/services/resumeProjects.js';
 import { getProfile } from '@server/services/profile.js';
+import { getEffectiveSettings } from '@server/services/settings.js';
 
 export const settingsRouter = Router();
 
@@ -15,139 +19,8 @@ export const settingsRouter = Router();
  */
 settingsRouter.get('/', async (_req: Request, res: Response) => {
   try {
-    const overrideModel = await settingsRepo.getSetting('model');
-    const defaultModel = process.env.MODEL || 'openai/gpt-4o-mini';
-    const model = overrideModel || defaultModel;
-
-    // Specific AI models
-    const overrideModelScorer = await settingsRepo.getSetting('modelScorer');
-    const modelScorer = overrideModelScorer || model;
-
-    const overrideModelTailoring = await settingsRepo.getSetting('modelTailoring');
-    const modelTailoring = overrideModelTailoring || model;
-
-    const overrideModelProjectSelection = await settingsRepo.getSetting('modelProjectSelection');
-    const modelProjectSelection = overrideModelProjectSelection || model;
-
-    const overridePipelineWebhookUrl = await settingsRepo.getSetting('pipelineWebhookUrl');
-    const defaultPipelineWebhookUrl = process.env.PIPELINE_WEBHOOK_URL || process.env.WEBHOOK_URL || '';
-    const pipelineWebhookUrl = overridePipelineWebhookUrl || defaultPipelineWebhookUrl;
-
-    const overrideJobCompleteWebhookUrl = await settingsRepo.getSetting('jobCompleteWebhookUrl');
-    const defaultJobCompleteWebhookUrl = process.env.JOB_COMPLETE_WEBHOOK_URL || '';
-    const jobCompleteWebhookUrl = overrideJobCompleteWebhookUrl || defaultJobCompleteWebhookUrl;
-
-    const profile = await getProfile();
-    const { catalog } = extractProjectsFromProfile(profile);
-    const overrideResumeProjectsRaw = await settingsRepo.getSetting('resumeProjects');
-    const resumeProjectsData = resolveResumeProjectsSettings({ catalog, overrideRaw: overrideResumeProjectsRaw });
-
-    const overrideUkvisajobsMaxJobsRaw = await settingsRepo.getSetting('ukvisajobsMaxJobs');
-    const defaultUkvisajobsMaxJobs = 50;
-    const overrideUkvisajobsMaxJobs = overrideUkvisajobsMaxJobsRaw ? parseInt(overrideUkvisajobsMaxJobsRaw, 10) : null;
-    const ukvisajobsMaxJobs = overrideUkvisajobsMaxJobs ?? defaultUkvisajobsMaxJobs;
-
-    const overrideGradcrackerMaxJobsPerTermRaw = await settingsRepo.getSetting('gradcrackerMaxJobsPerTerm');
-    const defaultGradcrackerMaxJobsPerTerm = 50;
-    const overrideGradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTermRaw ? parseInt(overrideGradcrackerMaxJobsPerTermRaw, 10) : null;
-    const gradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTerm ?? defaultGradcrackerMaxJobsPerTerm;
-
-    const overrideSearchTermsRaw = await settingsRepo.getSetting('searchTerms');
-    const defaultSearchTermsEnv = process.env.JOBSPY_SEARCH_TERMS || 'web developer';
-    const defaultSearchTerms = defaultSearchTermsEnv.split('|').map(s => s.trim()).filter(Boolean);
-    const overrideSearchTerms = overrideSearchTermsRaw ? JSON.parse(overrideSearchTermsRaw) as string[] : null;
-    const searchTerms = overrideSearchTerms ?? defaultSearchTerms;
-
-    // JobSpy settings (GET)
-    const overrideJobspyLocation = await settingsRepo.getSetting('jobspyLocation');
-    const defaultJobspyLocation = process.env.JOBSPY_LOCATION || 'UK';
-    const jobspyLocation = overrideJobspyLocation || defaultJobspyLocation;
-
-    const overrideJobspyResultsWantedRaw = await settingsRepo.getSetting('jobspyResultsWanted');
-    const defaultJobspyResultsWanted = parseInt(process.env.JOBSPY_RESULTS_WANTED || '200', 10);
-    const overrideJobspyResultsWanted = overrideJobspyResultsWantedRaw ? parseInt(overrideJobspyResultsWantedRaw, 10) : null;
-    const jobspyResultsWanted = overrideJobspyResultsWanted ?? defaultJobspyResultsWanted;
-
-    const overrideJobspyHoursOldRaw = await settingsRepo.getSetting('jobspyHoursOld');
-    const defaultJobspyHoursOld = parseInt(process.env.JOBSPY_HOURS_OLD || '72', 10);
-    const overrideJobspyHoursOld = overrideJobspyHoursOldRaw ? parseInt(overrideJobspyHoursOldRaw, 10) : null;
-    const jobspyHoursOld = overrideJobspyHoursOld ?? defaultJobspyHoursOld;
-
-    const overrideJobspyCountryIndeed = await settingsRepo.getSetting('jobspyCountryIndeed');
-    const defaultJobspyCountryIndeed = process.env.JOBSPY_COUNTRY_INDEED || 'UK';
-    const jobspyCountryIndeed = overrideJobspyCountryIndeed || defaultJobspyCountryIndeed;
-
-    const overrideJobspySitesRaw = await settingsRepo.getSetting('jobspySites');
-    const defaultJobspySites = (process.env.JOBSPY_SITES || 'indeed,linkedin').split(',').map(s => s.trim()).filter(Boolean);
-    const overrideJobspySites = overrideJobspySitesRaw ? JSON.parse(overrideJobspySitesRaw) as string[] : null;
-    const jobspySites = overrideJobspySites ?? defaultJobspySites;
-
-    const overrideJobspyLinkedinFetchDescriptionRaw = await settingsRepo.getSetting('jobspyLinkedinFetchDescription');
-    const defaultJobspyLinkedinFetchDescription = (process.env.JOBSPY_LINKEDIN_FETCH_DESCRIPTION || '1') === '1';
-    const overrideJobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescriptionRaw
-      ? overrideJobspyLinkedinFetchDescriptionRaw === 'true' || overrideJobspyLinkedinFetchDescriptionRaw === '1'
-      : null;
-    const jobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescription ?? defaultJobspyLinkedinFetchDescription;
-
-    // Show Sponsor Info setting (on by default)
-    const overrideShowSponsorInfoRaw = await settingsRepo.getSetting('showSponsorInfo');
-    const defaultShowSponsorInfo = true;
-    const overrideShowSponsorInfo = overrideShowSponsorInfoRaw
-      ? overrideShowSponsorInfoRaw === 'true' || overrideShowSponsorInfoRaw === '1'
-      : null;
-    const showSponsorInfo = overrideShowSponsorInfo ?? defaultShowSponsorInfo;
-
-    res.json({
-      success: true,
-      data: {
-        model,
-        defaultModel,
-        overrideModel,
-        modelScorer,
-        overrideModelScorer,
-        modelTailoring,
-        overrideModelTailoring,
-        modelProjectSelection,
-        overrideModelProjectSelection,
-        pipelineWebhookUrl,
-        defaultPipelineWebhookUrl,
-        overridePipelineWebhookUrl,
-        jobCompleteWebhookUrl,
-        defaultJobCompleteWebhookUrl,
-        overrideJobCompleteWebhookUrl,
-        ...resumeProjectsData,
-        ukvisajobsMaxJobs,
-        defaultUkvisajobsMaxJobs,
-        overrideUkvisajobsMaxJobs,
-        gradcrackerMaxJobsPerTerm,
-        defaultGradcrackerMaxJobsPerTerm,
-        overrideGradcrackerMaxJobsPerTerm,
-        searchTerms,
-        defaultSearchTerms,
-        overrideSearchTerms,
-        jobspyLocation,
-        defaultJobspyLocation,
-        overrideJobspyLocation,
-        jobspyResultsWanted,
-        defaultJobspyResultsWanted,
-        overrideJobspyResultsWanted,
-        jobspyHoursOld,
-        defaultJobspyHoursOld,
-        overrideJobspyHoursOld,
-        jobspyCountryIndeed,
-        defaultJobspyCountryIndeed,
-        overrideJobspyCountryIndeed,
-        jobspySites,
-        defaultJobspySites,
-        overrideJobspySites,
-        jobspyLinkedinFetchDescription,
-        defaultJobspyLinkedinFetchDescription,
-        overrideJobspyLinkedinFetchDescription,
-        showSponsorInfo,
-        defaultShowSponsorInfo,
-        overrideShowSponsorInfo,
-      },
-    });
+    const data = await getEffectiveSettings();
+    res.json({ success: true, data });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ success: false, error: message });
@@ -160,239 +33,162 @@ settingsRouter.get('/', async (_req: Request, res: Response) => {
 settingsRouter.patch('/', async (req: Request, res: Response) => {
   try {
     const input = updateSettingsSchema.parse(req.body);
+    const promises: Promise<void>[] = [];
 
     if ('model' in input) {
-      const model = input.model ?? null;
-      await settingsRepo.setSetting('model', model);
+      promises.push(settingsRepo.setSetting('model', input.model ?? null));
     }
 
     if ('modelScorer' in input) {
-      await settingsRepo.setSetting('modelScorer', input.modelScorer ?? null);
+      promises.push(settingsRepo.setSetting('modelScorer', input.modelScorer ?? null));
     }
     if ('modelTailoring' in input) {
-      await settingsRepo.setSetting('modelTailoring', input.modelTailoring ?? null);
+      promises.push(settingsRepo.setSetting('modelTailoring', input.modelTailoring ?? null));
     }
     if ('modelProjectSelection' in input) {
-      await settingsRepo.setSetting('modelProjectSelection', input.modelProjectSelection ?? null);
+      promises.push(settingsRepo.setSetting('modelProjectSelection', input.modelProjectSelection ?? null));
     }
 
     if ('pipelineWebhookUrl' in input) {
-      const pipelineWebhookUrl = input.pipelineWebhookUrl ?? null;
-      await settingsRepo.setSetting('pipelineWebhookUrl', pipelineWebhookUrl);
+      promises.push(settingsRepo.setSetting('pipelineWebhookUrl', input.pipelineWebhookUrl ?? null));
     }
 
     if ('jobCompleteWebhookUrl' in input) {
-      const webhookUrl = input.jobCompleteWebhookUrl ?? null;
-      await settingsRepo.setSetting('jobCompleteWebhookUrl', webhookUrl);
+      promises.push(settingsRepo.setSetting('jobCompleteWebhookUrl', input.jobCompleteWebhookUrl ?? null));
     }
 
     if ('resumeProjects' in input) {
       const resumeProjects = input.resumeProjects ?? null;
 
       if (resumeProjects === null) {
-        await settingsRepo.setSetting('resumeProjects', null);
+        promises.push(settingsRepo.setSetting('resumeProjects', null));
       } else {
-        const rawProfile = await getProfile();
+        promises.push((async () => {
+          const rawProfile = await getProfile();
 
-        if (rawProfile === null || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) {
-          throw new Error('Invalid resume profile format: expected a non-null object');
-        }
+          if (rawProfile === null || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) {
+            throw new Error('Invalid resume profile format: expected a non-null object');
+          }
 
-        const profile = rawProfile as Record<string, unknown>;
-        const { catalog } = extractProjectsFromProfile(profile);
-        const allowed = new Set(catalog.map((p) => p.id));
-        const normalized = normalizeResumeProjectsSettings(resumeProjects, allowed);
-        await settingsRepo.setSetting('resumeProjects', JSON.stringify(normalized));
+          const profile = rawProfile as Record<string, unknown>;
+          const { catalog } = extractProjectsFromProfile(profile);
+          const allowed = new Set(catalog.map((p) => p.id));
+          const normalized = normalizeResumeProjectsSettings(resumeProjects, allowed);
+          await settingsRepo.setSetting('resumeProjects', JSON.stringify(normalized));
+        })());
       }
     }
 
     if ('ukvisajobsMaxJobs' in input) {
-      const ukvisajobsMaxJobs = input.ukvisajobsMaxJobs ?? null;
-      await settingsRepo.setSetting('ukvisajobsMaxJobs', ukvisajobsMaxJobs !== null ? String(ukvisajobsMaxJobs) : null);
+      const val = input.ukvisajobsMaxJobs ?? null;
+      promises.push(settingsRepo.setSetting('ukvisajobsMaxJobs', val !== null ? String(val) : null));
     }
 
     if ('gradcrackerMaxJobsPerTerm' in input) {
-      const gradcrackerMaxJobsPerTerm = input.gradcrackerMaxJobsPerTerm ?? null;
-      await settingsRepo.setSetting('gradcrackerMaxJobsPerTerm', gradcrackerMaxJobsPerTerm !== null ? String(gradcrackerMaxJobsPerTerm) : null);
+      const val = input.gradcrackerMaxJobsPerTerm ?? null;
+      promises.push(settingsRepo.setSetting('gradcrackerMaxJobsPerTerm', val !== null ? String(val) : null));
     }
 
     if ('searchTerms' in input) {
-      const searchTerms = input.searchTerms ?? null;
-      await settingsRepo.setSetting('searchTerms', searchTerms !== null ? JSON.stringify(searchTerms) : null);
+      const val = input.searchTerms ?? null;
+      promises.push(settingsRepo.setSetting('searchTerms', val !== null ? JSON.stringify(val) : null));
     }
 
     if ('jobspyLocation' in input) {
-      const value = input.jobspyLocation ?? null;
-      await settingsRepo.setSetting('jobspyLocation', value);
+      promises.push(settingsRepo.setSetting('jobspyLocation', input.jobspyLocation ?? null));
     }
 
     if ('jobspyResultsWanted' in input) {
-      const value = input.jobspyResultsWanted ?? null;
-      await settingsRepo.setSetting('jobspyResultsWanted', value !== null ? String(value) : null);
+      const val = input.jobspyResultsWanted ?? null;
+      promises.push(settingsRepo.setSetting('jobspyResultsWanted', val !== null ? String(val) : null));
     }
 
     if ('jobspyHoursOld' in input) {
-      const value = input.jobspyHoursOld ?? null;
-      await settingsRepo.setSetting('jobspyHoursOld', value !== null ? String(value) : null);
+      const val = input.jobspyHoursOld ?? null;
+      promises.push(settingsRepo.setSetting('jobspyHoursOld', val !== null ? String(val) : null));
     }
 
     if ('jobspyCountryIndeed' in input) {
-      const value = input.jobspyCountryIndeed ?? null;
-      await settingsRepo.setSetting('jobspyCountryIndeed', value);
+      promises.push(settingsRepo.setSetting('jobspyCountryIndeed', input.jobspyCountryIndeed ?? null));
     }
 
     if ('jobspySites' in input) {
-      const value = input.jobspySites ?? null;
-      await settingsRepo.setSetting('jobspySites', value !== null ? JSON.stringify(value) : null);
+      const val = input.jobspySites ?? null;
+      promises.push(settingsRepo.setSetting('jobspySites', val !== null ? JSON.stringify(val) : null));
     }
 
     if ('jobspyLinkedinFetchDescription' in input) {
-      const value = input.jobspyLinkedinFetchDescription ?? null;
-      await settingsRepo.setSetting('jobspyLinkedinFetchDescription', value !== null ? (value ? '1' : '0') : null);
+      const val = input.jobspyLinkedinFetchDescription ?? null;
+      promises.push(settingsRepo.setSetting('jobspyLinkedinFetchDescription', val !== null ? (val ? '1' : '0') : null));
     }
 
     if ('showSponsorInfo' in input) {
-      const value = input.showSponsorInfo ?? null;
-      await settingsRepo.setSetting('showSponsorInfo', value !== null ? (value ? '1' : '0') : null);
+      const val = input.showSponsorInfo ?? null;
+      promises.push(settingsRepo.setSetting('showSponsorInfo', val !== null ? (val ? '1' : '0') : null));
     }
 
-    const overrideModel = await settingsRepo.getSetting('model');
-    const defaultModel = process.env.MODEL || 'openai/gpt-4o-mini';
-    const model = overrideModel || defaultModel;
+    if ('openrouterApiKey' in input) {
+      const value = normalizeEnvInput(input.openrouterApiKey);
+      promises.push(settingsRepo.setSetting('openrouterApiKey', value).then(() => {
+        applyEnvValue('OPENROUTER_API_KEY', value);
+      }));
+    }
 
-    const overrideModelScorer = await settingsRepo.getSetting('modelScorer');
-    const modelScorer = overrideModelScorer || model;
+    if ('rxresumeEmail' in input) {
+      const value = normalizeEnvInput(input.rxresumeEmail);
+      promises.push(settingsRepo.setSetting('rxresumeEmail', value).then(() => {
+        applyEnvValue('RXRESUME_EMAIL', value);
+      }));
+    }
 
-    const overrideModelTailoring = await settingsRepo.getSetting('modelTailoring');
-    const modelTailoring = overrideModelTailoring || model;
+    if ('rxresumePassword' in input) {
+      const value = normalizeEnvInput(input.rxresumePassword);
+      promises.push(settingsRepo.setSetting('rxresumePassword', value).then(() => {
+        applyEnvValue('RXRESUME_PASSWORD', value);
+      }));
+    }
 
-    const overrideModelProjectSelection = await settingsRepo.getSetting('modelProjectSelection');
-    const modelProjectSelection = overrideModelProjectSelection || model;
+    if ('basicAuthUser' in input) {
+      const value = normalizeEnvInput(input.basicAuthUser);
+      promises.push(settingsRepo.setSetting('basicAuthUser', value).then(() => {
+        applyEnvValue('BASIC_AUTH_USER', value);
+      }));
+    }
 
-    const overridePipelineWebhookUrl = await settingsRepo.getSetting('pipelineWebhookUrl');
-    const defaultPipelineWebhookUrl = process.env.PIPELINE_WEBHOOK_URL || process.env.WEBHOOK_URL || '';
-    const pipelineWebhookUrl = overridePipelineWebhookUrl || defaultPipelineWebhookUrl;
+    if ('basicAuthPassword' in input) {
+      const value = normalizeEnvInput(input.basicAuthPassword);
+      promises.push(settingsRepo.setSetting('basicAuthPassword', value).then(() => {
+        applyEnvValue('BASIC_AUTH_PASSWORD', value);
+      }));
+    }
 
-    const overrideJobCompleteWebhookUrl = await settingsRepo.getSetting('jobCompleteWebhookUrl');
-    const defaultJobCompleteWebhookUrl = process.env.JOB_COMPLETE_WEBHOOK_URL || '';
-    const jobCompleteWebhookUrl = overrideJobCompleteWebhookUrl || defaultJobCompleteWebhookUrl;
+    if ('ukvisajobsEmail' in input) {
+      const value = normalizeEnvInput(input.ukvisajobsEmail);
+      promises.push(settingsRepo.setSetting('ukvisajobsEmail', value).then(() => {
+        applyEnvValue('UKVISAJOBS_EMAIL', value);
+      }));
+    }
 
-    const profile = await getProfile();
-    const { catalog } = extractProjectsFromProfile(profile);
-    const overrideResumeProjectsRaw = await settingsRepo.getSetting('resumeProjects');
-    const resumeProjectsData = resolveResumeProjectsSettings({ catalog, overrideRaw: overrideResumeProjectsRaw });
+    if ('ukvisajobsPassword' in input) {
+      const value = normalizeEnvInput(input.ukvisajobsPassword);
+      promises.push(settingsRepo.setSetting('ukvisajobsPassword', value).then(() => {
+        applyEnvValue('UKVISAJOBS_PASSWORD', value);
+      }));
+    }
 
-    const overrideUkvisajobsMaxJobsRaw = await settingsRepo.getSetting('ukvisajobsMaxJobs');
-    const defaultUkvisajobsMaxJobs = 50;
-    const overrideUkvisajobsMaxJobs = overrideUkvisajobsMaxJobsRaw ? parseInt(overrideUkvisajobsMaxJobsRaw, 10) : null;
-    const ukvisajobsMaxJobs = overrideUkvisajobsMaxJobs ?? defaultUkvisajobsMaxJobs;
+    if ('webhookSecret' in input) {
+      const value = normalizeEnvInput(input.webhookSecret);
+      promises.push(settingsRepo.setSetting('webhookSecret', value).then(() => {
+        applyEnvValue('WEBHOOK_SECRET', value);
+      }));
+    }
 
-    const overrideGradcrackerMaxJobsPerTermRaw = await settingsRepo.getSetting('gradcrackerMaxJobsPerTerm');
-    const defaultGradcrackerMaxJobsPerTerm = 50;
-    const overrideGradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTermRaw ? parseInt(overrideGradcrackerMaxJobsPerTermRaw, 10) : null;
-    const gradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTerm ?? defaultGradcrackerMaxJobsPerTerm;
+    await Promise.all(promises);
 
-    // Search terms - stored as JSON array, default from env var (pipe-separated)
-    const overrideSearchTermsRaw = await settingsRepo.getSetting('searchTerms');
-    const defaultSearchTermsEnv = process.env.JOBSPY_SEARCH_TERMS || 'web developer';
-    const defaultSearchTerms = defaultSearchTermsEnv.split('|').map(s => s.trim()).filter(Boolean);
-    const overrideSearchTerms = overrideSearchTermsRaw ? JSON.parse(overrideSearchTermsRaw) as string[] : null;
-    const searchTerms = overrideSearchTerms ?? defaultSearchTerms;
-
-    // JobSpy settings (re-fetch to update response)
-    const overrideJobspyLocation = await settingsRepo.getSetting('jobspyLocation');
-    const defaultJobspyLocation = process.env.JOBSPY_LOCATION || 'UK';
-    const jobspyLocation = overrideJobspyLocation || defaultJobspyLocation;
-
-    const overrideJobspyResultsWantedRaw = await settingsRepo.getSetting('jobspyResultsWanted');
-    const defaultJobspyResultsWanted = parseInt(process.env.JOBSPY_RESULTS_WANTED || '200', 10);
-    const overrideJobspyResultsWanted = overrideJobspyResultsWantedRaw ? parseInt(overrideJobspyResultsWantedRaw, 10) : null;
-    const jobspyResultsWanted = overrideJobspyResultsWanted ?? defaultJobspyResultsWanted;
-
-    const overrideJobspyHoursOldRaw = await settingsRepo.getSetting('jobspyHoursOld');
-    const defaultJobspyHoursOld = parseInt(process.env.JOBSPY_HOURS_OLD || '72', 10);
-    const overrideJobspyHoursOld = overrideJobspyHoursOldRaw ? parseInt(overrideJobspyHoursOldRaw, 10) : null;
-    const jobspyHoursOld = overrideJobspyHoursOld ?? defaultJobspyHoursOld;
-
-    const overrideJobspyCountryIndeed = await settingsRepo.getSetting('jobspyCountryIndeed');
-    const defaultJobspyCountryIndeed = process.env.JOBSPY_COUNTRY_INDEED || 'UK';
-    const jobspyCountryIndeed = overrideJobspyCountryIndeed || defaultJobspyCountryIndeed;
-
-    const overrideJobspySitesRaw = await settingsRepo.getSetting('jobspySites');
-    const defaultJobspySites = (process.env.JOBSPY_SITES || 'indeed,linkedin').split(',').map(s => s.trim()).filter(Boolean);
-    const overrideJobspySites = overrideJobspySitesRaw ? JSON.parse(overrideJobspySitesRaw) as string[] : null;
-    const jobspySites = overrideJobspySites ?? defaultJobspySites;
-
-    const overrideJobspyLinkedinFetchDescriptionRaw = await settingsRepo.getSetting('jobspyLinkedinFetchDescription');
-    const defaultJobspyLinkedinFetchDescription = (process.env.JOBSPY_LINKEDIN_FETCH_DESCRIPTION || '1') === '1';
-    const overrideJobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescriptionRaw
-      ? overrideJobspyLinkedinFetchDescriptionRaw === 'true' || overrideJobspyLinkedinFetchDescriptionRaw === '1'
-      : null;
-    const jobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescription ?? defaultJobspyLinkedinFetchDescription;
-
-    // Show Sponsor Info setting
-    const overrideShowSponsorInfoRaw = await settingsRepo.getSetting('showSponsorInfo');
-    const defaultShowSponsorInfo = true;
-    const overrideShowSponsorInfo = overrideShowSponsorInfoRaw
-      ? overrideShowSponsorInfoRaw === 'true' || overrideShowSponsorInfoRaw === '1'
-      : null;
-    const showSponsorInfo = overrideShowSponsorInfo ?? defaultShowSponsorInfo;
-
-    res.json({
-      success: true,
-      data: {
-        model,
-        defaultModel,
-        overrideModel,
-        modelScorer,
-        overrideModelScorer,
-        modelTailoring,
-        overrideModelTailoring,
-        modelProjectSelection,
-        overrideModelProjectSelection,
-        pipelineWebhookUrl,
-        defaultPipelineWebhookUrl,
-        overridePipelineWebhookUrl,
-        jobCompleteWebhookUrl,
-        defaultJobCompleteWebhookUrl,
-        overrideJobCompleteWebhookUrl,
-        ...resumeProjectsData,
-        ukvisajobsMaxJobs,
-        defaultUkvisajobsMaxJobs,
-        overrideUkvisajobsMaxJobs,
-        gradcrackerMaxJobsPerTerm,
-        defaultGradcrackerMaxJobsPerTerm,
-        overrideGradcrackerMaxJobsPerTerm,
-        searchTerms,
-        defaultSearchTerms,
-        overrideSearchTerms,
-        jobspyLocation,
-        defaultJobspyLocation,
-        overrideJobspyLocation,
-        jobspyResultsWanted,
-        defaultJobspyResultsWanted,
-        overrideJobspyResultsWanted,
-        jobspyHoursOld,
-        defaultJobspyHoursOld,
-        overrideJobspyHoursOld,
-        jobspyCountryIndeed,
-        defaultJobspyCountryIndeed,
-        overrideJobspyCountryIndeed,
-        jobspySites,
-        defaultJobspySites,
-        overrideJobspySites,
-        jobspyLinkedinFetchDescription,
-        defaultJobspyLinkedinFetchDescription,
-        overrideJobspyLinkedinFetchDescription,
-        showSponsorInfo,
-        defaultShowSponsorInfo,
-        overrideShowSponsorInfo,
-      },
-    });
+    const data = await getEffectiveSettings();
+    res.json({ success: true, data });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    // PATCH usually returns 500 for unknown, but let's stick to what was there (400?)
-    // Wait, the file said 400? Let's verify line 608.
     res.status(400).json({ success: false, error: message });
   }
 });

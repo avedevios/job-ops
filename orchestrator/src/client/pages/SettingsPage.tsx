@@ -14,11 +14,11 @@ import { arraysEqual } from "@/lib/utils"
 import { resumeProjectsEqual } from "@client/pages/settings/utils"
 import { DangerZoneSection } from "@client/pages/settings/components/DangerZoneSection"
 import { DisplaySettingsSection } from "@client/pages/settings/components/DisplaySettingsSection"
+import { EnvironmentSettingsSection } from "@client/pages/settings/components/EnvironmentSettingsSection"
 import { GradcrackerSection } from "@client/pages/settings/components/GradcrackerSection"
-import { JobCompleteWebhookSection } from "@client/pages/settings/components/JobCompleteWebhookSection"
 import { JobspySection } from "@client/pages/settings/components/JobspySection"
 import { ModelSettingsSection } from "@client/pages/settings/components/ModelSettingsSection"
-import { PipelineWebhookSection } from "@client/pages/settings/components/PipelineWebhookSection"
+import { WebhooksSection } from "@client/pages/settings/components/WebhooksSection"
 import { ResumeProjectsSection } from "@client/pages/settings/components/ResumeProjectsSection"
 import { SearchTermsSection } from "@client/pages/settings/components/SearchTermsSection"
 import { UkvisajobsSection } from "@client/pages/settings/components/UkvisajobsSection"
@@ -41,6 +41,15 @@ const DEFAULT_FORM_VALUES: UpdateSettingsInput = {
   jobspySites: null,
   jobspyLinkedinFetchDescription: null,
   showSponsorInfo: null,
+  openrouterApiKey: "",
+  rxresumeEmail: "",
+  rxresumePassword: "",
+  basicAuthUser: "",
+  basicAuthPassword: "",
+  ukvisajobsEmail: "",
+  ukvisajobsPassword: "",
+  webhookSecret: "",
+  enableBasicAuth: false,
 }
 
 const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
@@ -61,6 +70,15 @@ const NULL_SETTINGS_PAYLOAD: UpdateSettingsInput = {
   jobspySites: null,
   jobspyLinkedinFetchDescription: null,
   showSponsorInfo: null,
+  openrouterApiKey: null,
+  rxresumeEmail: null,
+  rxresumePassword: null,
+  basicAuthUser: null,
+  basicAuthPassword: null,
+  ukvisajobsEmail: null,
+  ukvisajobsPassword: null,
+  webhookSecret: null,
+  enableBasicAuth: undefined,
 }
 
 const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
@@ -81,11 +99,26 @@ const mapSettingsToForm = (data: AppSettings): UpdateSettingsInput => ({
   jobspySites: data.overrideJobspySites,
   jobspyLinkedinFetchDescription: data.overrideJobspyLinkedinFetchDescription,
   showSponsorInfo: data.overrideShowSponsorInfo,
+  openrouterApiKey: "",
+  rxresumeEmail: data.rxresumeEmail ?? "",
+  rxresumePassword: "",
+  basicAuthUser: data.basicAuthUser ?? "",
+  basicAuthPassword: "",
+  ukvisajobsEmail: data.ukvisajobsEmail ?? "",
+  ukvisajobsPassword: "",
+  webhookSecret: "",
+  enableBasicAuth: data.basicAuthActive,
 })
 
 const normalizeString = (value: string | null | undefined) => {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
+}
+
+const normalizePrivateInput = (value: string | null | undefined) => {
+  const trimmed = value?.trim()
+  if (trimmed === "") return null
+  return trimmed || undefined
 }
 
 const isSameStringList = (left: string[] | null | undefined, right: string[] | null | undefined) => {
@@ -170,7 +203,23 @@ const getDerivedSettings = (settings: AppSettings | null) => {
       effective: settings?.showSponsorInfo ?? true,
       default: settings?.defaultShowSponsorInfo ?? true,
     },
+    envSettings: {
+      readable: {
+        rxresumeEmail: settings?.rxresumeEmail ?? "",
+        ukvisajobsEmail: settings?.ukvisajobsEmail ?? "",
+        basicAuthUser: settings?.basicAuthUser ?? "",
+      },
+      private: {
+        openrouterApiKeyHint: settings?.openrouterApiKeyHint ?? null,
+        rxresumePasswordHint: settings?.rxresumePasswordHint ?? null,
+        ukvisajobsPasswordHint: settings?.ukvisajobsPasswordHint ?? null,
+        basicAuthPasswordHint: settings?.basicAuthPasswordHint ?? null,
+        webhookSecretHint: settings?.webhookSecretHint ?? null,
+      },
+      basicAuthActive: settings?.basicAuthActive ?? false,
+    },
     defaultResumeProjects: settings?.defaultResumeProjects ?? null,
+
     profileProjects,
     maxProjectsTotal: profileProjects.length,
   }
@@ -188,7 +237,7 @@ export const SettingsPage: React.FC = () => {
     defaultValues: DEFAULT_FORM_VALUES,
   })
 
-  const { handleSubmit, reset, watch, formState: { isDirty, errors, isValid } } = methods
+  const { handleSubmit, reset, setError, watch, formState: { isDirty, errors, isValid, dirtyFields } } = methods
 
   useEffect(() => {
     let isMounted = true
@@ -224,6 +273,7 @@ export const SettingsPage: React.FC = () => {
     searchTerms,
     jobspy,
     display,
+    envSettings,
     defaultResumeProjects,
     profileProjects,
     maxProjectsTotal,
@@ -236,14 +286,68 @@ export const SettingsPage: React.FC = () => {
 
   const onSave = async (data: UpdateSettingsInput) => {
     if (!settings) return
+    if (data.enableBasicAuth && !settings.basicAuthActive) {
+      const password = data.basicAuthPassword?.trim() ?? ""
+      if (!password) {
+        setError("basicAuthPassword", {
+          type: "manual",
+          message: "Password is required when basic auth is enabled",
+        })
+        return
+      }
+    }
     try {
       setIsSaving(true)
-      
+
       // Prepare payload: nullify if equal to default
       const resumeProjectsData = data.resumeProjects
       const resumeProjectsOverride = (resumeProjectsData && defaultResumeProjects && resumeProjectsEqual(resumeProjectsData, defaultResumeProjects))
         ? null
         : resumeProjectsData
+
+      const envPayload: Partial<UpdateSettingsInput> = {}
+
+      if (dirtyFields.rxresumeEmail || dirtyFields.rxresumePassword) {
+        envPayload.rxresumeEmail = normalizeString(data.rxresumeEmail)
+      }
+
+      if (dirtyFields.ukvisajobsEmail || dirtyFields.ukvisajobsPassword) {
+        envPayload.ukvisajobsEmail = normalizeString(data.ukvisajobsEmail)
+      }
+
+      if (data.enableBasicAuth === false) {
+        envPayload.basicAuthUser = null
+        envPayload.basicAuthPassword = null
+      } else if (dirtyFields.enableBasicAuth || dirtyFields.basicAuthUser || dirtyFields.basicAuthPassword) {
+        // If enabling basic auth or changing either field, ensure we send at least the username
+        // to keep the pair consistent in the backend.
+        envPayload.basicAuthUser = normalizeString(data.basicAuthUser)
+
+        if (dirtyFields.basicAuthPassword) {
+          const value = normalizePrivateInput(data.basicAuthPassword)
+          if (value !== undefined) envPayload.basicAuthPassword = value
+        }
+      }
+
+      if (dirtyFields.openrouterApiKey) {
+        const value = normalizePrivateInput(data.openrouterApiKey)
+        if (value !== undefined) envPayload.openrouterApiKey = value
+      }
+
+      if (dirtyFields.rxresumePassword) {
+        const value = normalizePrivateInput(data.rxresumePassword)
+        if (value !== undefined) envPayload.rxresumePassword = value
+      }
+
+      if (dirtyFields.ukvisajobsPassword) {
+        const value = normalizePrivateInput(data.ukvisajobsPassword)
+        if (value !== undefined) envPayload.ukvisajobsPassword = value
+      }
+
+      if (dirtyFields.webhookSecret) {
+        const value = normalizePrivateInput(data.webhookSecret)
+        if (value !== undefined) envPayload.webhookSecret = value
+      }
 
       const payload: UpdateSettingsInput = {
         model: normalizeString(data.model),
@@ -266,7 +370,13 @@ export const SettingsPage: React.FC = () => {
           jobspy.linkedinFetchDescription.default
         ),
         showSponsorInfo: nullIfSame(data.showSponsorInfo, display.default),
+        ...envPayload,
       }
+
+      // Remove virtual field because the backend doesn't expect it
+      // this exists only to toggle the UI
+      // need to track it so that the save button is enabled when it changes
+      delete payload.enableBasicAuth
 
       const updated = await api.updateSettings(payload)
       setSettings(updated)
@@ -365,13 +475,10 @@ export const SettingsPage: React.FC = () => {
             isLoading={isLoading}
             isSaving={isSaving}
           />
-          <PipelineWebhookSection
-            values={pipelineWebhook}
-            isLoading={isLoading}
-            isSaving={isSaving}
-          />
-          <JobCompleteWebhookSection
-            values={jobCompleteWebhook}
+          <WebhooksSection
+            pipelineWebhook={pipelineWebhook}
+            jobCompleteWebhook={jobCompleteWebhook}
+            webhookSecretHint={envSettings.private.webhookSecretHint}
             isLoading={isLoading}
             isSaving={isSaving}
           />
@@ -404,6 +511,11 @@ export const SettingsPage: React.FC = () => {
           />
           <DisplaySettingsSection
             values={display}
+            isLoading={isLoading}
+            isSaving={isSaving}
+          />
+          <EnvironmentSettingsSection
+            values={envSettings}
             isLoading={isLoading}
             isSaving={isSaving}
           />

@@ -383,4 +383,13 @@ export interface AppSettings {
   showSponsorInfo: boolean;
   defaultShowSponsorInfo: boolean;
   overrideShowSponsorInfo: boolean | null;
+  openrouterApiKeyHint: string | null;
+  rxresumeEmail: string | null;
+  rxresumePasswordHint: string | null;
+  basicAuthUser: string | null;
+  basicAuthPasswordHint: string | null;
+  ukvisajobsEmail: string | null;
+  ukvisajobsPasswordHint: string | null;
+  webhookSecretHint: string | null;
+  basicAuthActive: boolean;
 }

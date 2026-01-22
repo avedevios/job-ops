@@ -2,10 +2,10 @@ import React from "react"
 import { useFormContext } from "react-hook-form"
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { UpdateSettingsInput } from "@shared/settings-schema"
 import type { ModelValues } from "@client/pages/settings/types"
+import { SettingsInput } from "@client/pages/settings/components/SettingsInput"
 
 type ModelSettingsSectionProps = {
   values: ModelValues
@@ -28,18 +28,15 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
       </AccordionTrigger>
       <AccordionContent className="pb-4">
         <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Override model</div>
-            <Input
-              {...register("model")}
-              placeholder={defaultModel || "openai/gpt-4o-mini"}
-              disabled={isLoading || isSaving}
-            />
-            {errors.model && <p className="text-xs text-destructive">{errors.model.message}</p>}
-            <div className="text-xs text-muted-foreground">
-              Leave blank to use the default from server env (`MODEL`).
-            </div>
-          </div>
+          <SettingsInput
+            label="Override model"
+            inputProps={register("model")}
+            placeholder={defaultModel || "openai/gpt-4o-mini"}
+            disabled={isLoading || isSaving}
+            error={errors.model?.message as string | undefined}
+            helper="Leave blank to use the default from server env (`MODEL`)."
+            current={effective || "—"}
+          />
 
           <Separator />
 
@@ -47,44 +44,32 @@ export const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({
             <div className="text-sm font-medium">Task-Specific Overrides</div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-2">
-                <div className="text-sm">Scoring Model</div>
-                <Input
-                  {...register("modelScorer")}
-                  placeholder={effective || "inherit"}
-                  disabled={isLoading || isSaving}
-                />
-                {errors.modelScorer && <p className="text-xs text-destructive">{errors.modelScorer.message}</p>}
-                <div className="text-xs text-muted-foreground">
-                  Effective: <span className="font-mono">{scorer || effective}</span>
-                </div>
-              </div>
+              <SettingsInput
+                label="Scoring Model"
+                inputProps={register("modelScorer")}
+                placeholder={effective || "inherit"}
+                disabled={isLoading || isSaving}
+                error={errors.modelScorer?.message as string | undefined}
+                current={scorer || effective || "—"}
+              />
 
-              <div className="space-y-2">
-                <div className="text-sm">Tailoring Model</div>
-                <Input
-                  {...register("modelTailoring")}
-                  placeholder={effective || "inherit"}
-                  disabled={isLoading || isSaving}
-                />
-                {errors.modelTailoring && <p className="text-xs text-destructive">{errors.modelTailoring.message}</p>}
-                <div className="text-xs text-muted-foreground">
-                  Effective: <span className="font-mono">{tailoring || effective}</span>
-                </div>
-              </div>
+              <SettingsInput
+                label="Tailoring Model"
+                inputProps={register("modelTailoring")}
+                placeholder={effective || "inherit"}
+                disabled={isLoading || isSaving}
+                error={errors.modelTailoring?.message as string | undefined}
+                current={tailoring || effective || "—"}
+              />
 
-              <div className="space-y-2">
-                <div className="text-sm">Project Selection Model</div>
-                <Input
-                  {...register("modelProjectSelection")}
-                  placeholder={effective || "inherit"}
-                  disabled={isLoading || isSaving}
-                />
-                {errors.modelProjectSelection && <p className="text-xs text-destructive">{errors.modelProjectSelection.message}</p>}
-                <div className="text-xs text-muted-foreground">
-                  Effective: <span className="font-mono">{projectSelection || effective}</span>
-                </div>
-              </div>
+              <SettingsInput
+                label="Project Selection Model"
+                inputProps={register("modelProjectSelection")}
+                placeholder={effective || "inherit"}
+                disabled={isLoading || isSaving}
+                error={errors.modelProjectSelection?.message as string | undefined}
+                current={projectSelection || effective || "—"}
+              />
             </div>
           </div>
 

@@ -86,10 +86,13 @@ export async function startServer(options?: {
   };
 
   await import('../../db/migrate.js');
+  const { applyStoredEnvOverrides } = await import('../../services/envSettings.js');
   const { createApp } = await import('../../app.js');
   const { closeDb } = await import('../../db/index.js');
   const { getPipelineStatus } = await import('../../pipeline/index.js');
   vi.mocked(getPipelineStatus).mockReturnValue({ isRunning: false });
+
+  await applyStoredEnvOverrides();
 
   const app = createApp();
   const server = app.listen(0);

@@ -4,14 +4,18 @@
 
 import './config/env.js';
 import { createApp } from './app.js';
+import { applyStoredEnvOverrides } from './services/envSettings.js';
 import { initialize as initializeVisaSponsors } from './services/visa-sponsors/index.js';
 
-const app = createApp();
-const PORT = process.env.PORT || 3001;
+async function startServer() {
+  await applyStoredEnvOverrides();
 
-// Start server
-app.listen(PORT, async () => {
-  console.log(`
+  const app = createApp();
+  const PORT = process.env.PORT || 3001;
+
+  // Start server
+  app.listen(PORT, async () => {
+    console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║   🚀 Job Ops Orchestrator                                 ║
@@ -25,10 +29,13 @@ app.listen(PORT, async () => {
 ╚═══════════════════════════════════════════════════════════╝
   `);
 
-  // Initialize visa sponsors service (downloads data if needed, starts scheduler)
-  try {
-    await initializeVisaSponsors();
-  } catch (error) {
-    console.warn('⚠️ Failed to initialize visa sponsors service:', error);
-  }
-});
+    // Initialize visa sponsors service (downloads data if needed, starts scheduler)
+    try {
+      await initializeVisaSponsors();
+    } catch (error) {
+      console.warn('⚠️ Failed to initialize visa sponsors service:', error);
+    }
+  });
+}
+
+void startServer();
