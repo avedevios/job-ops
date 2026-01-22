@@ -1,21 +1,25 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Server } from 'http';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { startServer, stopServer } from './test-utils.js';
+import { RxResumeClient } from '@server/services/rxresume-client.js';
 
 describe.sequential('Onboarding API routes', () => {
     let server: Server;
     let baseUrl: string;
     let closeDb: () => void;
     let tempDir: string;
+    let originalFetch: typeof global.fetch;
 
     beforeEach(async () => {
+        originalFetch = global.fetch;
         ({ server, baseUrl, closeDb, tempDir } = await startServer());
     });
 
     afterEach(async () => {
         await stopServer({ server, closeDb, tempDir });
+        global.fetch = originalFetch;
     });
 
     describe('POST /api/onboarding/validate/openrouter', () => {
@@ -47,6 +51,17 @@ describe.sequential('Onboarding API routes', () => {
         });
 
         it('validates an invalid API key against OpenRouter', async () => {
+            global.fetch = vi.fn((input, init) => {
+                const url = typeof input === 'string' ? input : input.url;
+                if (url.startsWith('https://openrouter.ai/api/v1/key')) {
+                    return Promise.resolve({
+                        ok: false,
+                        status: 401,
+                        json: async () => ({ error: { message: 'invalid api key' } }),
+                    } as Response);
+                }
+                return originalFetch(input, init);
+            });
             const res = await fetch(`${baseUrl}/api/onboarding/validate/openrouter`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -103,6 +118,11 @@ describe.sequential('Onboarding API routes', () => {
         });
 
         it('validates invalid credentials against RxResume', async () => {
+            vi.spyOn(RxResumeClient, 'verifyCredentials').mockResolvedValue({
+                ok: false,
+                status: 401,
+                message: 'InvalidCredentials',
+            });
             const res = await fetch(`${baseUrl}/api/onboarding/validate/rxresume`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
