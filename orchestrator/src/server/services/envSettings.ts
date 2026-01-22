@@ -70,30 +70,37 @@ export async function applyStoredEnvOverrides(): Promise<void> {
   ]);
 }
 
-export async function getEnvSettingsData(): Promise<Record<string, string | boolean | number | null>> {
+export async function getEnvSettingsData(
+  overrides?: Partial<Record<SettingKey, string>>
+): Promise<Record<string, string | boolean | number | null>> {
   const readableValues: Record<string, string | boolean | null> = {};
   const privateValues: Record<string, string | null> = {};
 
   for (const { settingKey, envKey } of readableStringConfig) {
-    const override = await settingsRepo.getSetting(settingKey);
+    const override = overrides ? (overrides[settingKey] ?? null) : await settingsRepo.getSetting(settingKey);
     const rawValue = override ?? process.env[envKey];
     readableValues[settingKey] = normalizeEnvInput(rawValue);
   }
 
   for (const { settingKey, envKey, defaultValue } of readableBooleanConfig) {
-    const override = await settingsRepo.getSetting(settingKey);
+    const override = overrides ? (overrides[settingKey] ?? null) : await settingsRepo.getSetting(settingKey);
     const rawValue = override ?? process.env[envKey];
     readableValues[settingKey] = parseEnvBoolean(rawValue, defaultValue);
   }
 
   for (const { settingKey, envKey, hintKey } of privateStringConfig) {
-    const override = await settingsRepo.getSetting(settingKey);
+    const override = overrides ? (overrides[settingKey] ?? null) : await settingsRepo.getSetting(settingKey);
     const rawValue = override ?? process.env[envKey];
     privateValues[hintKey] = rawValue ? rawValue.slice(0, 4) : null;
   }
 
-  const basicAuthUser = (await settingsRepo.getSetting('basicAuthUser')) ?? process.env.BASIC_AUTH_USER;
-  const basicAuthPassword = (await settingsRepo.getSetting('basicAuthPassword')) ?? process.env.BASIC_AUTH_PASSWORD;
+  const basicAuthUser = overrides
+    ? (overrides['basicAuthUser'] ?? process.env.BASIC_AUTH_USER)
+    : (await settingsRepo.getSetting('basicAuthUser')) ?? process.env.BASIC_AUTH_USER;
+
+  const basicAuthPassword = overrides
+    ? (overrides['basicAuthPassword'] ?? process.env.BASIC_AUTH_PASSWORD)
+    : (await settingsRepo.getSetting('basicAuthPassword')) ?? process.env.BASIC_AUTH_PASSWORD;
 
   return {
     ...readableValues,

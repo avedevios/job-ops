@@ -3,15 +3,14 @@ import { updateSettingsSchema } from '@shared/settings-schema.js';
 import * as settingsRepo from '@server/repositories/settings.js';
 import {
   applyEnvValue,
-  getEnvSettingsData,
   normalizeEnvInput,
 } from '@server/services/envSettings.js';
 import {
   extractProjectsFromProfile,
   normalizeResumeProjectsSettings,
-  resolveResumeProjectsSettings,
 } from '@server/services/resumeProjects.js';
 import { getProfile } from '@server/services/profile.js';
+import { getEffectiveSettings } from '@server/services/settings.js';
 
 export const settingsRouter = Router();
 
@@ -20,142 +19,8 @@ export const settingsRouter = Router();
  */
 settingsRouter.get('/', async (_req: Request, res: Response) => {
   try {
-    const overrideModel = await settingsRepo.getSetting('model');
-    const defaultModel = process.env.MODEL || 'openai/gpt-4o-mini';
-    const model = overrideModel || defaultModel;
-
-    // Specific AI models
-    const overrideModelScorer = await settingsRepo.getSetting('modelScorer');
-    const modelScorer = overrideModelScorer || model;
-
-    const overrideModelTailoring = await settingsRepo.getSetting('modelTailoring');
-    const modelTailoring = overrideModelTailoring || model;
-
-    const overrideModelProjectSelection = await settingsRepo.getSetting('modelProjectSelection');
-    const modelProjectSelection = overrideModelProjectSelection || model;
-
-    const overridePipelineWebhookUrl = await settingsRepo.getSetting('pipelineWebhookUrl');
-    const defaultPipelineWebhookUrl = process.env.PIPELINE_WEBHOOK_URL || process.env.WEBHOOK_URL || '';
-    const pipelineWebhookUrl = overridePipelineWebhookUrl || defaultPipelineWebhookUrl;
-
-    const overrideJobCompleteWebhookUrl = await settingsRepo.getSetting('jobCompleteWebhookUrl');
-    const defaultJobCompleteWebhookUrl = process.env.JOB_COMPLETE_WEBHOOK_URL || '';
-    const jobCompleteWebhookUrl = overrideJobCompleteWebhookUrl || defaultJobCompleteWebhookUrl;
-
-    const profile = await getProfile();
-    const { catalog } = extractProjectsFromProfile(profile);
-    const overrideResumeProjectsRaw = await settingsRepo.getSetting('resumeProjects');
-    const resumeProjectsData = resolveResumeProjectsSettings({ catalog, overrideRaw: overrideResumeProjectsRaw });
-
-    const overrideUkvisajobsMaxJobsRaw = await settingsRepo.getSetting('ukvisajobsMaxJobs');
-    const defaultUkvisajobsMaxJobs = 50;
-    const overrideUkvisajobsMaxJobs = overrideUkvisajobsMaxJobsRaw ? parseInt(overrideUkvisajobsMaxJobsRaw, 10) : null;
-    const ukvisajobsMaxJobs = overrideUkvisajobsMaxJobs ?? defaultUkvisajobsMaxJobs;
-
-    const overrideGradcrackerMaxJobsPerTermRaw = await settingsRepo.getSetting('gradcrackerMaxJobsPerTerm');
-    const defaultGradcrackerMaxJobsPerTerm = 50;
-    const overrideGradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTermRaw ? parseInt(overrideGradcrackerMaxJobsPerTermRaw, 10) : null;
-    const gradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTerm ?? defaultGradcrackerMaxJobsPerTerm;
-
-    const overrideSearchTermsRaw = await settingsRepo.getSetting('searchTerms');
-    const defaultSearchTermsEnv = process.env.JOBSPY_SEARCH_TERMS || 'web developer';
-    const defaultSearchTerms = defaultSearchTermsEnv.split('|').map(s => s.trim()).filter(Boolean);
-    const overrideSearchTerms = overrideSearchTermsRaw ? JSON.parse(overrideSearchTermsRaw) as string[] : null;
-    const searchTerms = overrideSearchTerms ?? defaultSearchTerms;
-
-    // JobSpy settings (GET)
-    const overrideJobspyLocation = await settingsRepo.getSetting('jobspyLocation');
-    const defaultJobspyLocation = process.env.JOBSPY_LOCATION || 'UK';
-    const jobspyLocation = overrideJobspyLocation || defaultJobspyLocation;
-
-    const overrideJobspyResultsWantedRaw = await settingsRepo.getSetting('jobspyResultsWanted');
-    const defaultJobspyResultsWanted = parseInt(process.env.JOBSPY_RESULTS_WANTED || '200', 10);
-    const overrideJobspyResultsWanted = overrideJobspyResultsWantedRaw ? parseInt(overrideJobspyResultsWantedRaw, 10) : null;
-    const jobspyResultsWanted = overrideJobspyResultsWanted ?? defaultJobspyResultsWanted;
-
-    const overrideJobspyHoursOldRaw = await settingsRepo.getSetting('jobspyHoursOld');
-    const defaultJobspyHoursOld = parseInt(process.env.JOBSPY_HOURS_OLD || '72', 10);
-    const overrideJobspyHoursOld = overrideJobspyHoursOldRaw ? parseInt(overrideJobspyHoursOldRaw, 10) : null;
-    const jobspyHoursOld = overrideJobspyHoursOld ?? defaultJobspyHoursOld;
-
-    const overrideJobspyCountryIndeed = await settingsRepo.getSetting('jobspyCountryIndeed');
-    const defaultJobspyCountryIndeed = process.env.JOBSPY_COUNTRY_INDEED || 'UK';
-    const jobspyCountryIndeed = overrideJobspyCountryIndeed || defaultJobspyCountryIndeed;
-
-    const overrideJobspySitesRaw = await settingsRepo.getSetting('jobspySites');
-    const defaultJobspySites = (process.env.JOBSPY_SITES || 'indeed,linkedin').split(',').map(s => s.trim()).filter(Boolean);
-    const overrideJobspySites = overrideJobspySitesRaw ? JSON.parse(overrideJobspySitesRaw) as string[] : null;
-    const jobspySites = overrideJobspySites ?? defaultJobspySites;
-
-    const overrideJobspyLinkedinFetchDescriptionRaw = await settingsRepo.getSetting('jobspyLinkedinFetchDescription');
-    const defaultJobspyLinkedinFetchDescription = (process.env.JOBSPY_LINKEDIN_FETCH_DESCRIPTION || '1') === '1';
-    const overrideJobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescriptionRaw
-      ? overrideJobspyLinkedinFetchDescriptionRaw === 'true' || overrideJobspyLinkedinFetchDescriptionRaw === '1'
-      : null;
-    const jobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescription ?? defaultJobspyLinkedinFetchDescription;
-
-    // Show Sponsor Info setting (on by default)
-    const overrideShowSponsorInfoRaw = await settingsRepo.getSetting('showSponsorInfo');
-    const defaultShowSponsorInfo = true;
-    const overrideShowSponsorInfo = overrideShowSponsorInfoRaw
-      ? overrideShowSponsorInfoRaw === 'true' || overrideShowSponsorInfoRaw === '1'
-      : null;
-    const showSponsorInfo = overrideShowSponsorInfo ?? defaultShowSponsorInfo;
-
-    const envSettings = await getEnvSettingsData();
-
-    res.json({
-      success: true,
-      data: {
-        model,
-        defaultModel,
-        overrideModel,
-        modelScorer,
-        overrideModelScorer,
-        modelTailoring,
-        overrideModelTailoring,
-        modelProjectSelection,
-        overrideModelProjectSelection,
-        pipelineWebhookUrl,
-        defaultPipelineWebhookUrl,
-        overridePipelineWebhookUrl,
-        jobCompleteWebhookUrl,
-        defaultJobCompleteWebhookUrl,
-        overrideJobCompleteWebhookUrl,
-        ...resumeProjectsData,
-        ukvisajobsMaxJobs,
-        defaultUkvisajobsMaxJobs,
-        overrideUkvisajobsMaxJobs,
-        gradcrackerMaxJobsPerTerm,
-        defaultGradcrackerMaxJobsPerTerm,
-        overrideGradcrackerMaxJobsPerTerm,
-        searchTerms,
-        defaultSearchTerms,
-        overrideSearchTerms,
-        jobspyLocation,
-        defaultJobspyLocation,
-        overrideJobspyLocation,
-        jobspyResultsWanted,
-        defaultJobspyResultsWanted,
-        overrideJobspyResultsWanted,
-        jobspyHoursOld,
-        defaultJobspyHoursOld,
-        overrideJobspyHoursOld,
-        jobspyCountryIndeed,
-        defaultJobspyCountryIndeed,
-        overrideJobspyCountryIndeed,
-        jobspySites,
-        defaultJobspySites,
-        overrideJobspySites,
-        jobspyLinkedinFetchDescription,
-        defaultJobspyLinkedinFetchDescription,
-        overrideJobspyLinkedinFetchDescription,
-        showSponsorInfo,
-        defaultShowSponsorInfo,
-        overrideShowSponsorInfo,
-        ...envSettings,
-      },
-    });
+    const data = await getEffectiveSettings();
+    res.json({ success: true, data });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ success: false, error: message });
@@ -312,146 +177,10 @@ settingsRouter.patch('/', async (req: Request, res: Response) => {
       applyEnvValue('WEBHOOK_SECRET', value);
     }
 
-    const overrideModel = await settingsRepo.getSetting('model');
-    const defaultModel = process.env.MODEL || 'openai/gpt-4o-mini';
-    const model = overrideModel || defaultModel;
-
-    const overrideModelScorer = await settingsRepo.getSetting('modelScorer');
-    const modelScorer = overrideModelScorer || model;
-
-    const overrideModelTailoring = await settingsRepo.getSetting('modelTailoring');
-    const modelTailoring = overrideModelTailoring || model;
-
-    const overrideModelProjectSelection = await settingsRepo.getSetting('modelProjectSelection');
-    const modelProjectSelection = overrideModelProjectSelection || model;
-
-    const overridePipelineWebhookUrl = await settingsRepo.getSetting('pipelineWebhookUrl');
-    const defaultPipelineWebhookUrl = process.env.PIPELINE_WEBHOOK_URL || process.env.WEBHOOK_URL || '';
-    const pipelineWebhookUrl = overridePipelineWebhookUrl || defaultPipelineWebhookUrl;
-
-    const overrideJobCompleteWebhookUrl = await settingsRepo.getSetting('jobCompleteWebhookUrl');
-    const defaultJobCompleteWebhookUrl = process.env.JOB_COMPLETE_WEBHOOK_URL || '';
-    const jobCompleteWebhookUrl = overrideJobCompleteWebhookUrl || defaultJobCompleteWebhookUrl;
-
-    const profile = await getProfile();
-    const { catalog } = extractProjectsFromProfile(profile);
-    const overrideResumeProjectsRaw = await settingsRepo.getSetting('resumeProjects');
-    const resumeProjectsData = resolveResumeProjectsSettings({ catalog, overrideRaw: overrideResumeProjectsRaw });
-
-    const overrideUkvisajobsMaxJobsRaw = await settingsRepo.getSetting('ukvisajobsMaxJobs');
-    const defaultUkvisajobsMaxJobs = 50;
-    const overrideUkvisajobsMaxJobs = overrideUkvisajobsMaxJobsRaw ? parseInt(overrideUkvisajobsMaxJobsRaw, 10) : null;
-    const ukvisajobsMaxJobs = overrideUkvisajobsMaxJobs ?? defaultUkvisajobsMaxJobs;
-
-    const overrideGradcrackerMaxJobsPerTermRaw = await settingsRepo.getSetting('gradcrackerMaxJobsPerTerm');
-    const defaultGradcrackerMaxJobsPerTerm = 50;
-    const overrideGradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTermRaw ? parseInt(overrideGradcrackerMaxJobsPerTermRaw, 10) : null;
-    const gradcrackerMaxJobsPerTerm = overrideGradcrackerMaxJobsPerTerm ?? defaultGradcrackerMaxJobsPerTerm;
-
-    // Search terms - stored as JSON array, default from env var (pipe-separated)
-    const overrideSearchTermsRaw = await settingsRepo.getSetting('searchTerms');
-    const defaultSearchTermsEnv = process.env.JOBSPY_SEARCH_TERMS || 'web developer';
-    const defaultSearchTerms = defaultSearchTermsEnv.split('|').map(s => s.trim()).filter(Boolean);
-    const overrideSearchTerms = overrideSearchTermsRaw ? JSON.parse(overrideSearchTermsRaw) as string[] : null;
-    const searchTerms = overrideSearchTerms ?? defaultSearchTerms;
-
-    // JobSpy settings (re-fetch to update response)
-    const overrideJobspyLocation = await settingsRepo.getSetting('jobspyLocation');
-    const defaultJobspyLocation = process.env.JOBSPY_LOCATION || 'UK';
-    const jobspyLocation = overrideJobspyLocation || defaultJobspyLocation;
-
-    const overrideJobspyResultsWantedRaw = await settingsRepo.getSetting('jobspyResultsWanted');
-    const defaultJobspyResultsWanted = parseInt(process.env.JOBSPY_RESULTS_WANTED || '200', 10);
-    const overrideJobspyResultsWanted = overrideJobspyResultsWantedRaw ? parseInt(overrideJobspyResultsWantedRaw, 10) : null;
-    const jobspyResultsWanted = overrideJobspyResultsWanted ?? defaultJobspyResultsWanted;
-
-    const overrideJobspyHoursOldRaw = await settingsRepo.getSetting('jobspyHoursOld');
-    const defaultJobspyHoursOld = parseInt(process.env.JOBSPY_HOURS_OLD || '72', 10);
-    const overrideJobspyHoursOld = overrideJobspyHoursOldRaw ? parseInt(overrideJobspyHoursOldRaw, 10) : null;
-    const jobspyHoursOld = overrideJobspyHoursOld ?? defaultJobspyHoursOld;
-
-    const overrideJobspyCountryIndeed = await settingsRepo.getSetting('jobspyCountryIndeed');
-    const defaultJobspyCountryIndeed = process.env.JOBSPY_COUNTRY_INDEED || 'UK';
-    const jobspyCountryIndeed = overrideJobspyCountryIndeed || defaultJobspyCountryIndeed;
-
-    const overrideJobspySitesRaw = await settingsRepo.getSetting('jobspySites');
-    const defaultJobspySites = (process.env.JOBSPY_SITES || 'indeed,linkedin').split(',').map(s => s.trim()).filter(Boolean);
-    const overrideJobspySites = overrideJobspySitesRaw ? JSON.parse(overrideJobspySitesRaw) as string[] : null;
-    const jobspySites = overrideJobspySites ?? defaultJobspySites;
-
-    const overrideJobspyLinkedinFetchDescriptionRaw = await settingsRepo.getSetting('jobspyLinkedinFetchDescription');
-    const defaultJobspyLinkedinFetchDescription = (process.env.JOBSPY_LINKEDIN_FETCH_DESCRIPTION || '1') === '1';
-    const overrideJobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescriptionRaw
-      ? overrideJobspyLinkedinFetchDescriptionRaw === 'true' || overrideJobspyLinkedinFetchDescriptionRaw === '1'
-      : null;
-    const jobspyLinkedinFetchDescription = overrideJobspyLinkedinFetchDescription ?? defaultJobspyLinkedinFetchDescription;
-
-    // Show Sponsor Info setting
-    const overrideShowSponsorInfoRaw = await settingsRepo.getSetting('showSponsorInfo');
-    const defaultShowSponsorInfo = true;
-    const overrideShowSponsorInfo = overrideShowSponsorInfoRaw
-      ? overrideShowSponsorInfoRaw === 'true' || overrideShowSponsorInfoRaw === '1'
-      : null;
-    const showSponsorInfo = overrideShowSponsorInfo ?? defaultShowSponsorInfo;
-
-    const envSettings = await getEnvSettingsData();
-
-    res.json({
-      success: true,
-      data: {
-        model,
-        defaultModel,
-        overrideModel,
-        modelScorer,
-        overrideModelScorer,
-        modelTailoring,
-        overrideModelTailoring,
-        modelProjectSelection,
-        overrideModelProjectSelection,
-        pipelineWebhookUrl,
-        defaultPipelineWebhookUrl,
-        overridePipelineWebhookUrl,
-        jobCompleteWebhookUrl,
-        defaultJobCompleteWebhookUrl,
-        overrideJobCompleteWebhookUrl,
-        ...resumeProjectsData,
-        ukvisajobsMaxJobs,
-        defaultUkvisajobsMaxJobs,
-        overrideUkvisajobsMaxJobs,
-        gradcrackerMaxJobsPerTerm,
-        defaultGradcrackerMaxJobsPerTerm,
-        overrideGradcrackerMaxJobsPerTerm,
-        searchTerms,
-        defaultSearchTerms,
-        overrideSearchTerms,
-        jobspyLocation,
-        defaultJobspyLocation,
-        overrideJobspyLocation,
-        jobspyResultsWanted,
-        defaultJobspyResultsWanted,
-        overrideJobspyResultsWanted,
-        jobspyHoursOld,
-        defaultJobspyHoursOld,
-        overrideJobspyHoursOld,
-        jobspyCountryIndeed,
-        defaultJobspyCountryIndeed,
-        overrideJobspyCountryIndeed,
-        jobspySites,
-        defaultJobspySites,
-        overrideJobspySites,
-        jobspyLinkedinFetchDescription,
-        defaultJobspyLinkedinFetchDescription,
-        overrideJobspyLinkedinFetchDescription,
-        showSponsorInfo,
-        defaultShowSponsorInfo,
-        overrideShowSponsorInfo,
-        ...envSettings,
-      },
-    });
+    const data = await getEffectiveSettings();
+    res.json({ success: true, data });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    // PATCH usually returns 500 for unknown, but let's stick to what was there (400?)
-    // Wait, the file said 400? Let's verify line 608.
     res.status(400).json({ success: false, error: message });
   }
 });

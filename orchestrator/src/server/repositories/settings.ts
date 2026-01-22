@@ -38,6 +38,14 @@ export async function getSetting(key: SettingKey): Promise<string | null> {
   return row?.value ?? null
 }
 
+export async function getAllSettings(): Promise<Partial<Record<SettingKey, string>>> {
+  const rows = await db.select().from(settings)
+  return rows.reduce((acc, row) => {
+    acc[row.key as SettingKey] = row.value
+    return acc
+  }, {} as Partial<Record<SettingKey, string>>)
+}
+
 export async function setSetting(key: SettingKey, value: string | null): Promise<void> {
   const now = new Date().toISOString()
 

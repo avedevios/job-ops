@@ -116,7 +116,8 @@ const normalizeString = (value: string | null | undefined) => {
 
 const normalizePrivateInput = (value: string | null | undefined) => {
   const trimmed = value?.trim()
-  return trimmed ? trimmed : undefined
+  if (trimmed === "") return null
+  return trimmed || undefined
 }
 
 const isSameStringList = (left: string[] | null | undefined, right: string[] | null | undefined) => {
