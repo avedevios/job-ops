@@ -247,6 +247,13 @@ export async function getRxResumes(): Promise<{ id: string; name: string }[]> {
   return data.resumes;
 }
 
+export async function getRxResumeProjects(resumeId: string): Promise<ResumeProjectCatalogItem[]> {
+  const data = await fetchApi<{ projects: ResumeProjectCatalogItem[] }>(
+    `/settings/rx-resumes/${encodeURIComponent(resumeId)}/projects`
+  );
+  return data.projects;
+}
+
 
 // Database API
 export async function clearDatabase(): Promise<{

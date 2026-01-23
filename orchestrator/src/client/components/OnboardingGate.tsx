@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { Check } from "lucide-react"
 import { toast } from "sonner"
 
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldTitle } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
@@ -13,17 +12,15 @@ import * as api from "@client/api"
 import { useSettings } from "@client/hooks/useSettings"
 import { SettingsInput } from "@client/pages/settings/components/SettingsInput"
 import { formatSecretHint } from "@client/pages/settings/utils"
-import type { ResumeProfile, ValidationResult } from "@shared/types"
+import type { ValidationResult } from "@shared/types"
 
 type ValidationState = ValidationResult & { checked: boolean }
 
 export const OnboardingGate: React.FC = () => {
   const { settings, isLoading: settingsLoading, refreshSettings } = useSettings()
   const [isSavingEnv, setIsSavingEnv] = useState(false)
-  const [isUploadingResume, setIsUploadingResume] = useState(false)
   const [isValidatingOpenrouter, setIsValidatingOpenrouter] = useState(false)
   const [isValidatingRxresume, setIsValidatingRxresume] = useState(false)
-  const [isValidatingResume, setIsValidatingResume] = useState(false)
   const [openrouterValidation, setOpenrouterValidation] = useState<ValidationState>({
     valid: false,
     message: null,
@@ -34,34 +31,11 @@ export const OnboardingGate: React.FC = () => {
     message: null,
     checked: false,
   })
-  const [resumeValidation, setResumeValidation] = useState<ValidationState>({
-    valid: false,
-    message: null,
-    checked: false,
-  })
   const [currentStep, setCurrentStep] = useState<string | null>(null)
 
   const [openrouterApiKey, setOpenrouterApiKey] = useState("")
   const [rxresumeEmail, setRxresumeEmail] = useState("")
   const [rxresumePassword, setRxresumePassword] = useState("")
-  const [resumeFile, setResumeFile] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  const validateResume = useCallback(async () => {
-    setIsValidatingResume(true)
-    try {
-      const result = await api.validateResumeJson()
-      setResumeValidation({ ...result, checked: true })
-      return result
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Resume validation failed"
-      const result = { valid: false, message }
-      setResumeValidation({ ...result, checked: true })
-      return result
-    } finally {
-      setIsValidatingResume(false)
-    }
-  }, [])
 
   const validateOpenrouter = useCallback(async (apiKey?: string) => {
     setIsValidatingOpenrouter(true)
@@ -98,10 +72,8 @@ export const OnboardingGate: React.FC = () => {
   const hasOpenrouterKey = Boolean(settings?.openrouterApiKeyHint)
   const hasRxresumeEmail = Boolean(settings?.rxresumeEmail?.trim())
   const hasRxresumePassword = Boolean(settings?.rxresumePasswordHint)
-  const hasBaseResume = resumeValidation.valid
-
   const shouldOpen = Boolean(settings && !settingsLoading)
-    && !(openrouterValidation.valid && rxresumeValidation.valid && resumeValidation.valid)
+    && !(openrouterValidation.valid && rxresumeValidation.valid)
 
   const openrouterCurrent = settings?.openrouterApiKeyHint
     ? formatSecretHint(settings.openrouterApiKeyHint)
@@ -127,14 +99,8 @@ export const OnboardingGate: React.FC = () => {
         subtitle: "RxResume login",
         complete: rxresumeValidation.valid,
       },
-      {
-        id: "resume",
-        label: "Resume JSON",
-        subtitle: "Upload your file",
-        complete: resumeValidation.valid,
-      },
     ],
-    [openrouterValidation.valid, resumeValidation.valid, rxresumeValidation.valid]
+    [openrouterValidation.valid, rxresumeValidation.valid]
   )
 
   const defaultStep = steps.find((step) => !step.complete)?.id ?? steps[0]?.id
@@ -151,7 +117,6 @@ export const OnboardingGate: React.FC = () => {
     const results = await Promise.allSettled([
       validateOpenrouter(),
       validateRxresume(),
-      validateResume(),
     ])
 
     const failed = results.find((result) => result.status === "rejected")
@@ -160,13 +125,13 @@ export const OnboardingGate: React.FC = () => {
       const message = reason instanceof Error ? reason.message : "Validation checks failed"
       toast.error(message)
     }
-  }, [settings, validateOpenrouter, validateRxresume, validateResume])
+  }, [settings, validateOpenrouter, validateRxresume])
 
   useEffect(() => {
     if (!settings || settingsLoading) return
-    if (openrouterValidation.checked || rxresumeValidation.checked || resumeValidation.checked) return
+    if (openrouterValidation.checked || rxresumeValidation.checked) return
     void runAllValidations()
-  }, [settings, settingsLoading, openrouterValidation.checked, rxresumeValidation.checked, resumeValidation.checked, runAllValidations])
+  }, [settings, settingsLoading, openrouterValidation.checked, rxresumeValidation.checked, runAllValidations])
 
   const handleRefresh = async () => {
     const results = await Promise.allSettled([refreshSettings(), runAllValidations()])
@@ -254,58 +219,17 @@ export const OnboardingGate: React.FC = () => {
     }
   }
 
-  const handleUploadResume = async (): Promise<boolean> => {
-    if (!resumeFile) {
-      const validation = await validateResume()
-      if (!validation.valid) {
-        toast.info(validation.message || "Upload your resume JSON to continue")
-        return false
-      }
-
-      return true
-    }
-
-    try {
-      setIsUploadingResume(true)
-      const text = await resumeFile.text()
-      let parsed: ResumeProfile
-      try {
-        parsed = JSON.parse(text) as ResumeProfile
-      } catch {
-        throw new Error("Resume JSON is invalid. Export the base.json from RxResume.")
-      }
-
-      await api.uploadProfile(parsed)
-      await validateResume()
-      setResumeFile(null)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
-      toast.success("Resume uploaded")
-      return true
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to upload resume"
-      toast.error(message)
-      return false
-    } finally {
-      setIsUploadingResume(false)
-    }
-  }
-
-  const resumeFileName = resumeFile?.name || ""
   const resolvedStepIndex = currentStep ? steps.findIndex((step) => step.id === currentStep) : 0
   const stepIndex = resolvedStepIndex >= 0 ? resolvedStepIndex : 0
   const completedSteps = steps.filter((step) => step.complete).length
   const progressValue = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0
-  const isBusy = isSavingEnv || isUploadingResume || settingsLoading || isValidatingOpenrouter || isValidatingRxresume || isValidatingResume
+  const isBusy = isSavingEnv || settingsLoading || isValidatingOpenrouter || isValidatingRxresume
   const canGoBack = stepIndex > 0
-  const primaryLabel = currentStep === "resume"
-    ? (resumeValidation.valid ? "Finish" : "Upload and validate")
-    : currentStep === "openrouter"
-      ? (openrouterValidation.valid ? "Revalidate" : "Validate")
-      : currentStep === "rxresume"
-        ? (rxresumeValidation.valid ? "Revalidate" : "Validate")
-        : "Validate"
+  const primaryLabel = currentStep === "openrouter"
+    ? (openrouterValidation.valid ? "Revalidate" : "Validate")
+    : currentStep === "rxresume"
+      ? (rxresumeValidation.valid ? "Revalidate" : "Validate")
+      : "Validate"
 
   const handlePrimaryAction = async () => {
     if (!currentStep) return
@@ -316,13 +240,6 @@ export const OnboardingGate: React.FC = () => {
     if (currentStep === "rxresume") {
       await handleSaveRxresume()
       return
-    }
-    if (currentStep === "resume") {
-      if (hasBaseResume) {
-        await handleRefresh()
-        return
-      }
-      await handleUploadResume()
     }
   }
 
@@ -348,7 +265,7 @@ export const OnboardingGate: React.FC = () => {
           </AlertDialogHeader>
 
           <Tabs value={currentStep} onValueChange={setCurrentStep}>
-            <TabsList className="grid h-auto w-full grid-cols-1 gap-2 border-b border-border/60 bg-transparent p-0 text-left sm:grid-cols-3">
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-2 border-b border-border/60 bg-transparent p-0 text-left sm:grid-cols-2">
               {steps.map((step, index) => {
                 const isActive = step.id === currentStep
                 const isComplete = step.complete
@@ -439,30 +356,6 @@ export const OnboardingGate: React.FC = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="resume" className="space-y-4 pt-6">
-              <div>
-                <p className="text-sm font-semibold">Upload your resume JSON</p>
-                <p className="text-xs text-muted-foreground">Use the JSON export you downloaded from v4.rxresu.me.</p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                <div className="space-y-2">
-                  <label htmlFor="resumeFile" className="text-sm font-medium">
-                    Resume JSON
-                  </label>
-                  <Input
-                    id="resumeFile"
-                    ref={fileInputRef}
-                    type="file"
-                    accept="application/json,.json"
-                    onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
-                    disabled={isUploadingResume}
-                  />
-                  {resumeFileName && (
-                    <p className="text-xs text-muted-foreground">Selected: {resumeFileName}</p>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
           </Tabs>
 
           <div className="flex items-center justify-between">

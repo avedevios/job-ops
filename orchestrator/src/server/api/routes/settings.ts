@@ -11,7 +11,7 @@ import {
 } from '@server/services/resumeProjects.js';
 import { getProfile } from '@server/services/profile.js';
 import { getEffectiveSettings } from '@server/services/settings.js';
-import { listResumes, RxResumeCredentialsError } from '@server/services/rxresume-v4.js';
+import { getResume, listResumes, RxResumeCredentialsError } from '@server/services/rxresume-v4.js';
 
 export const settingsRouter = Router();
 
@@ -58,6 +58,10 @@ settingsRouter.patch('/', async (req: Request, res: Response) => {
       promises.push(settingsRepo.setSetting('jobCompleteWebhookUrl', input.jobCompleteWebhookUrl ?? null));
     }
 
+    if ('rxresumeBaseResumeId' in input) {
+      promises.push(settingsRepo.setSetting('rxresumeBaseResumeId', normalizeEnvInput(input.rxresumeBaseResumeId)));
+    }
+
     if ('resumeProjects' in input) {
       const resumeProjects = input.resumeProjects ?? null;
 
@@ -65,13 +69,35 @@ settingsRouter.patch('/', async (req: Request, res: Response) => {
         promises.push(settingsRepo.setSetting('resumeProjects', null));
       } else {
         promises.push((async () => {
-          const rawProfile = await getProfile();
+          const baseResumeId = 'rxresumeBaseResumeId' in input
+            ? normalizeEnvInput(input.rxresumeBaseResumeId)
+            : await settingsRepo.getSetting('rxresumeBaseResumeId');
 
-          if (rawProfile === null || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) {
-            throw new Error('Invalid resume profile format: expected a non-null object');
+          let profile: Record<string, unknown> = {};
+
+          if (baseResumeId) {
+            try {
+              const resume = await getResume(baseResumeId);
+              if (resume.data && typeof resume.data === 'object') {
+                profile = resume.data as Record<string, unknown>;
+              }
+            } catch (error) {
+              if (error instanceof RxResumeCredentialsError) {
+                throw new Error('RxResume credentials missing while validating resume projects.');
+              }
+            }
           }
 
-          const profile = rawProfile as Record<string, unknown>;
+          if (Object.keys(profile).length === 0) {
+            const rawProfile = await getProfile();
+
+            if (rawProfile === null || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) {
+              throw new Error('Invalid resume profile format: expected a non-null object');
+            }
+
+            profile = rawProfile as Record<string, unknown>;
+          }
+
           const { catalog } = extractProjectsFromProfile(profile);
           const allowed = new Set(catalog.map((p) => p.id));
           const normalized = normalizeResumeProjectsSettings(resumeProjects, allowed);
@@ -215,6 +241,33 @@ settingsRouter.get('/rx-resumes', async (_req: Request, res: Response) => {
     }
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`❌ Failed to fetch Reactive Resumes: ${message}`);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+/**
+ * GET /api/settings/rx-resumes/:id/projects - Fetch project catalog from RxResume v4
+ */
+settingsRouter.get('/rx-resumes/:id/projects', async (req: Request, res: Response) => {
+  try {
+    const resumeId = req.params.id;
+    if (!resumeId) {
+      res.status(400).json({ success: false, error: 'Resume id is required.' });
+      return;
+    }
+
+    const resume = await getResume(resumeId);
+    const profile = resume.data ?? {};
+    const { catalog } = extractProjectsFromProfile(profile);
+
+    res.json({ success: true, data: { projects: catalog } });
+  } catch (error) {
+    if (error instanceof RxResumeCredentialsError) {
+      res.status(400).json({ success: false, error: error.message });
+      return;
+    }
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`❌ Failed to fetch RxResume projects: ${message}`);
     res.status(500).json({ success: false, error: message });
   }
 });
