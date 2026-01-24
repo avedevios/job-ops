@@ -381,6 +381,9 @@ export const UkVisaJobsPage: React.FC = () => {
                 placeholder="e.g. data analyst"
                 className="h-10"
               />
+              <p className="text-xs text-muted-foreground">
+                Note: Search is limited to job titles only due to API constraints.
+              </p>
             </div>
 
             <div className="flex items-end">
