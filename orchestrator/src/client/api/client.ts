@@ -5,9 +5,12 @@
 import { trackEvent } from "@/lib/analytics";
 import type {
   ApiResponse,
+  ApplicationStage,
+  ApplicationTask,
   AppSettings,
   CreateJobInput,
   Job,
+  JobOutcome,
   JobSource,
   JobsListResponse,
   ManualJobDraft,
@@ -18,6 +21,9 @@ import type {
   ResumeProfile,
   ResumeProjectCatalogItem,
   ResumeProjectsSettings,
+  StageEvent,
+  StageEventMetadata,
+  StageTransitionTarget,
   UkVisaJobsImportResponse,
   UkVisaJobsSearchResponse,
   ValidationResult,
@@ -67,7 +73,7 @@ export async function getJobs(statuses?: string[]): Promise<JobsListResponse> {
 }
 
 export async function getJob(id: string): Promise<Job> {
-  return fetchApi<Job>(`/jobs/${id}`);
+  return fetchApi<Job>(`/jobs/${id}?t=${Date.now()}`);
 }
 
 export async function updateJob(
@@ -127,6 +133,71 @@ export async function markAsApplied(id: string): Promise<Job> {
 export async function skipJob(id: string): Promise<Job> {
   return fetchApi<Job>(`/jobs/${id}/skip`, {
     method: "POST",
+  });
+}
+
+export async function getJobStageEvents(id: string): Promise<StageEvent[]> {
+  return fetchApi<StageEvent[]>(`/jobs/${id}/events?t=${Date.now()}`);
+}
+
+export async function getJobTasks(
+  id: string,
+  options?: { includeCompleted?: boolean },
+): Promise<ApplicationTask[]> {
+  const params = new URLSearchParams();
+  if (options?.includeCompleted) params.set("includeCompleted", "1");
+  params.set("t", Date.now().toString());
+  const query = params.toString();
+  return fetchApi<ApplicationTask[]>(`/jobs/${id}/tasks?${query}`);
+}
+
+export async function transitionJobStage(
+  id: string,
+  input: {
+    toStage: StageTransitionTarget;
+    occurredAt?: number | null;
+    metadata?: StageEventMetadata | null;
+    outcome?: JobOutcome | null;
+  },
+): Promise<StageEvent> {
+  return fetchApi<StageEvent>(`/jobs/${id}/stages`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateJobStageEvent(
+  id: string,
+  eventId: string,
+  input: {
+    toStage?: ApplicationStage;
+    occurredAt?: number | null;
+    metadata?: StageEventMetadata | null;
+    outcome?: JobOutcome | null;
+  },
+): Promise<void> {
+  return fetchApi<void>(`/jobs/${id}/events/${eventId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteJobStageEvent(
+  id: string,
+  eventId: string,
+): Promise<void> {
+  return fetchApi<void>(`/jobs/${id}/events/${eventId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function updateJobOutcome(
+  id: string,
+  input: { outcome: JobOutcome | null; closedAt?: number | null },
+): Promise<Job> {
+  return fetchApi<Job>(`/jobs/${id}/outcome`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
 }
 

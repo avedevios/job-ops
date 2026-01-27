@@ -1,6 +1,14 @@
-import { Calendar, DollarSign, Loader2, MapPin, Search } from "lucide-react";
+import {
+  ArrowUpRight,
+  Calendar,
+  DollarSign,
+  Loader2,
+  MapPin,
+  Search,
+} from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -172,6 +180,8 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
   onCheckSponsor,
 }) => {
   const { showSponsorInfo } = useSettings();
+  const { pathname } = useLocation();
+  const isJobPage = pathname.startsWith("/job/");
   const deadline = formatDate(job.deadline);
 
   return (
@@ -179,19 +189,37 @@ export const JobHeader: React.FC<JobHeaderProps> = ({
       {/* Detail header: lighter weight than list items */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-base font-semibold text-foreground/90">
+          <Link
+            to={`/job/${job.id}`}
+            className="flex items-center gap-2 text-base font-semibold underline-offset-2 text-foreground/90 hover:underline"
+          >
             {job.title}
-          </div>
+          </Link>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{job.employer}</span>
           </div>
         </div>
-        <Badge
-          variant="outline"
-          className="text-[10px] uppercase tracking-wide text-muted-foreground border-border/50"
-        >
-          {sourceLabel[job.source]}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="text-[10px] uppercase tracking-wide text-muted-foreground border-border/50"
+          >
+            {sourceLabel[job.source]}
+          </Badge>
+          {!isJobPage && (
+            <Button
+              asChild
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] uppercase tracking-wide"
+            >
+              <Link to={`/job/${job.id}`}>
+                View
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tertiary metadata - subdued */}

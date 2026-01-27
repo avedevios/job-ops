@@ -10,6 +10,114 @@ export type JobStatus =
   | "skipped" // User skipped this job
   | "expired"; // Deadline passed
 
+export const APPLICATION_STAGES = [
+  "applied",
+  "recruiter_screen",
+  "assessment",
+  "hiring_manager_screen",
+  "technical_interview",
+  "onsite",
+  "offer",
+  "closed",
+] as const;
+
+export type ApplicationStage = (typeof APPLICATION_STAGES)[number];
+
+export const STAGE_LABELS: Record<ApplicationStage, string> = {
+  applied: "Applied",
+  recruiter_screen: "Recruiter Screen",
+  assessment: "Assessment",
+  hiring_manager_screen: "Hiring Manager Screen",
+  technical_interview: "Technical Interview",
+  onsite: "Final Round",
+  offer: "Offer",
+  closed: "Closed",
+};
+
+export type StageTransitionTarget = ApplicationStage | "no_change";
+
+export const APPLICATION_OUTCOMES = [
+  "offer_accepted",
+  "offer_declined",
+  "rejected",
+  "withdrawn",
+  "no_response",
+  "ghosted",
+] as const;
+
+export type JobOutcome = (typeof APPLICATION_OUTCOMES)[number];
+
+export const APPLICATION_TASK_TYPES = [
+  "prep",
+  "todo",
+  "follow_up",
+  "check_status",
+] as const;
+
+export type ApplicationTaskType = (typeof APPLICATION_TASK_TYPES)[number];
+
+export const INTERVIEW_TYPES = [
+  "recruiter_screen",
+  "technical",
+  "onsite",
+  "panel",
+  "behavioral",
+  "final",
+] as const;
+
+export type InterviewType = (typeof INTERVIEW_TYPES)[number];
+
+export const INTERVIEW_OUTCOMES = [
+  "pass",
+  "fail",
+  "pending",
+  "cancelled",
+] as const;
+
+export type InterviewOutcome = (typeof INTERVIEW_OUTCOMES)[number];
+
+export interface StageEventMetadata {
+  note?: string | null;
+  actor?: "system" | "user";
+  groupId?: string | null;
+  groupLabel?: string | null;
+  eventLabel?: string | null;
+  externalUrl?: string | null;
+  reasonCode?: string | null;
+  eventType?: "interview_log" | "status_update" | "note" | null;
+}
+
+export interface StageEvent {
+  id: string;
+  applicationId: string;
+  title: string;
+  groupId: string | null;
+  fromStage: ApplicationStage | null;
+  toStage: ApplicationStage;
+  occurredAt: number;
+  metadata: StageEventMetadata | null;
+  outcome: JobOutcome | null;
+}
+
+export interface ApplicationTask {
+  id: string;
+  applicationId: string;
+  type: ApplicationTaskType;
+  title: string;
+  dueDate: number | null;
+  isCompleted: boolean;
+  notes: string | null;
+}
+
+export interface Interview {
+  id: string;
+  applicationId: string;
+  scheduledAt: number;
+  durationMins: number | null;
+  type: InterviewType;
+  outcome: InterviewOutcome | null;
+}
+
 export type JobSource =
   | "gradcracker"
   | "indeed"
@@ -42,6 +150,8 @@ export interface Job {
 
   // Orchestrator enrichments
   status: JobStatus;
+  outcome: JobOutcome | null;
+  closedAt: number | null;
   suitabilityScore: number | null; // 0-100 AI-generated score
   suitabilityReason: string | null; // AI explanation
   tailoredSummary: string | null; // Generated resume summary
@@ -161,6 +271,8 @@ export interface ManualJobFetchResponse {
 
 export interface UpdateJobInput {
   status?: JobStatus;
+  outcome?: JobOutcome | null;
+  closedAt?: number | null;
   jobDescription?: string;
   suitabilityScore?: number;
   suitabilityReason?: string;

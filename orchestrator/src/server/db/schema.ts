@@ -4,6 +4,13 @@
 
 import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  APPLICATION_OUTCOMES,
+  APPLICATION_STAGES,
+  APPLICATION_TASK_TYPES,
+  INTERVIEW_OUTCOMES,
+  INTERVIEW_TYPES,
+} from "../../shared/types.js";
 
 export const jobs = sqliteTable("jobs", {
   id: text("id").primaryKey(),
@@ -69,6 +76,8 @@ export const jobs = sqliteTable("jobs", {
   })
     .notNull()
     .default("discovered"),
+  outcome: text("outcome", { enum: APPLICATION_OUTCOMES }),
+  closedAt: integer("closed_at", { mode: "number" }),
   suitabilityScore: real("suitability_score"),
   suitabilityReason: text("suitability_reason"),
   tailoredSummary: text("tailored_summary"),
@@ -86,6 +95,45 @@ export const jobs = sqliteTable("jobs", {
   appliedAt: text("applied_at"),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
   updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
+export const stageEvents = sqliteTable("stage_events", {
+  id: text("id").primaryKey(),
+  applicationId: text("application_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  groupId: text("group_id"),
+  fromStage: text("from_stage", { enum: APPLICATION_STAGES }),
+  toStage: text("to_stage", { enum: APPLICATION_STAGES }).notNull(),
+  occurredAt: integer("occurred_at", { mode: "number" }).notNull(),
+  metadata: text("metadata", { mode: "json" }),
+  outcome: text("outcome", { enum: APPLICATION_OUTCOMES }),
+});
+
+export const tasks = sqliteTable("tasks", {
+  id: text("id").primaryKey(),
+  applicationId: text("application_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  type: text("type", { enum: APPLICATION_TASK_TYPES }).notNull(),
+  title: text("title").notNull(),
+  dueDate: integer("due_date", { mode: "number" }),
+  isCompleted: integer("is_completed", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  notes: text("notes"),
+});
+
+export const interviews = sqliteTable("interviews", {
+  id: text("id").primaryKey(),
+  applicationId: text("application_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  scheduledAt: integer("scheduled_at", { mode: "number" }).notNull(),
+  durationMins: integer("duration_mins"),
+  type: text("type", { enum: INTERVIEW_TYPES }).notNull(),
+  outcome: text("outcome", { enum: INTERVIEW_OUTCOMES }),
 });
 
 export const pipelineRuns = sqliteTable("pipeline_runs", {
@@ -111,6 +159,12 @@ export const settings = sqliteTable("settings", {
 
 export type JobRow = typeof jobs.$inferSelect;
 export type NewJobRow = typeof jobs.$inferInsert;
+export type StageEventRow = typeof stageEvents.$inferSelect;
+export type NewStageEventRow = typeof stageEvents.$inferInsert;
+export type TaskRow = typeof tasks.$inferSelect;
+export type NewTaskRow = typeof tasks.$inferInsert;
+export type InterviewRow = typeof interviews.$inferSelect;
+export type NewInterviewRow = typeof interviews.$inferInsert;
 export type PipelineRunRow = typeof pipelineRuns.$inferSelect;
 export type NewPipelineRunRow = typeof pipelineRuns.$inferInsert;
 export type SettingsRow = typeof settings.$inferSelect;

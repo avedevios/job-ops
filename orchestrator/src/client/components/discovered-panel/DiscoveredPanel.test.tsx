@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
+import { MemoryRouter } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../../../shared/types";
@@ -115,6 +116,8 @@ const createJob = (overrides: Partial<Job> = {}): Job => ({
   appliedAt: null,
   createdAt: "2025-01-01T00:00:00Z",
   updatedAt: "2025-01-02T00:00:00Z",
+  outcome: null,
+  closedAt: null,
   ...overrides,
 });
 
@@ -129,11 +132,13 @@ describe("DiscoveredPanel", () => {
     vi.mocked(api.rescoreJob).mockResolvedValue(job as Job);
 
     render(
-      <DiscoveredPanel
-        job={job}
-        onJobUpdated={onJobUpdated}
-        onJobMoved={vi.fn()}
-      />,
+      <MemoryRouter>
+        <DiscoveredPanel
+          job={job}
+          onJobUpdated={onJobUpdated}
+          onJobMoved={vi.fn()}
+        />
+      </MemoryRouter>,
     );
 
     fireEvent.click(

@@ -16,13 +16,15 @@ export function clearDatabase(): { jobsDeleted: number; runsDeleted: number } {
   const sqlite = new Database(DB_PATH);
 
   try {
+    sqlite.prepare("DELETE FROM stage_events").run();
+    sqlite.prepare("DELETE FROM tasks").run();
+    sqlite.prepare("DELETE FROM interviews").run();
     const jobsResult = sqlite.prepare("DELETE FROM jobs").run();
     const runsResult = sqlite.prepare("DELETE FROM pipeline_runs").run();
 
     console.log(
       `🗑️ Cleared database: ${jobsResult.changes} jobs, ${runsResult.changes} pipeline runs`,
     );
-
     return {
       jobsDeleted: jobsResult.changes,
       runsDeleted: runsResult.changes,

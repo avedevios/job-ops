@@ -24,6 +24,8 @@ const jobFixture: Job = {
   starting: null,
   jobDescription: "Build APIs",
   status: "ready",
+  outcome: null,
+  closedAt: null,
   suitabilityScore: 90,
   suitabilityReason: null,
   tailoredSummary: null,

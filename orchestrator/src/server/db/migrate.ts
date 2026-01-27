@@ -62,6 +62,8 @@ const migrations = [
     starting TEXT,
     job_description TEXT,
     status TEXT NOT NULL DEFAULT 'discovered' CHECK(status IN ('discovered', 'processing', 'ready', 'applied', 'skipped', 'expired')),
+    outcome TEXT,
+    closed_at INTEGER,
     suitability_score REAL,
     suitability_reason TEXT,
     tailored_summary TEXT,
@@ -89,6 +91,40 @@ const migrations = [
     value TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS stage_events (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    group_id TEXT,
+    from_stage TEXT,
+    to_stage TEXT NOT NULL,
+    occurred_at INTEGER NOT NULL,
+    metadata TEXT,
+    outcome TEXT,
+    FOREIGN KEY (application_id) REFERENCES jobs(id) ON DELETE CASCADE
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    due_date INTEGER,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    FOREIGN KEY (application_id) REFERENCES jobs(id) ON DELETE CASCADE
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS interviews (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL,
+    scheduled_at INTEGER NOT NULL,
+    duration_mins INTEGER,
+    type TEXT NOT NULL,
+    outcome TEXT,
+    FOREIGN KEY (application_id) REFERENCES jobs(id) ON DELETE CASCADE
   )`,
 
   // Rename settings key: webhookUrl -> pipelineWebhookUrl (safe to re-run)
@@ -136,9 +172,35 @@ const migrations = [
   `ALTER TABLE jobs ADD COLUMN sponsor_match_score REAL`,
   `ALTER TABLE jobs ADD COLUMN sponsor_match_names TEXT`,
 
+  // Add application tracking columns
+  `ALTER TABLE jobs ADD COLUMN outcome TEXT`,
+  `ALTER TABLE jobs ADD COLUMN closed_at INTEGER`,
+  `ALTER TABLE stage_events ADD COLUMN outcome TEXT`,
+  `ALTER TABLE stage_events ADD COLUMN title TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE stage_events ADD COLUMN group_id TEXT`,
+
   `CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)`,
   `CREATE INDEX IF NOT EXISTS idx_jobs_discovered_at ON jobs(discovered_at)`,
   `CREATE INDEX IF NOT EXISTS idx_pipeline_runs_started_at ON pipeline_runs(started_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_stage_events_application_id ON stage_events(application_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_stage_events_occurred_at ON stage_events(occurred_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_tasks_application_id ON tasks(application_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)`,
+  `CREATE INDEX IF NOT EXISTS idx_interviews_application_id ON interviews(application_id)`,
+
+  // Backfill: Create "Applied" events for legacy jobs that have applied_at set but no event entry
+  `INSERT INTO stage_events (id, application_id, title, from_stage, to_stage, occurred_at, metadata)
+   SELECT
+     'backfill-applied-' || id,
+     id,
+     'Applied',
+     NULL,
+     'applied',
+     CAST(strftime('%s', applied_at) AS INTEGER),
+     '{"eventLabel":"Applied","actor":"system"}'
+   FROM jobs
+   WHERE applied_at IS NOT NULL
+     AND id NOT IN (SELECT application_id FROM stage_events WHERE to_stage = 'applied')`,
 ];
 
 console.log("🔧 Running database migrations...");
@@ -150,7 +212,11 @@ for (const migration of migrations) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const isDuplicateColumn =
-      migration.toLowerCase().includes("alter table jobs add column") &&
+      (migration.toLowerCase().includes("alter table jobs add column") ||
+        migration.toLowerCase().includes("alter table tasks add column") ||
+        migration
+          .toLowerCase()
+          .includes("alter table stage_events add column")) &&
       message.toLowerCase().includes("duplicate column name");
 
     if (isDuplicateColumn) {

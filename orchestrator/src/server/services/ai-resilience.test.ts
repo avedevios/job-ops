@@ -34,6 +34,8 @@ const mockJob: Job = {
   starting: null,
   jobDescription: "Looking for a TypeScript and React expert.",
   status: "discovered",
+  outcome: null,
+  closedAt: null,
   suitabilityScore: null,
   suitabilityReason: null,
   tailoredSummary: null,
