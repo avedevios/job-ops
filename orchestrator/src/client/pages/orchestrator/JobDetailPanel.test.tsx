@@ -163,7 +163,6 @@ describe("JobDetailPanel", () => {
         selectedJob={job}
         onSelectJobId={vi.fn()}
         onJobUpdated={vi.fn().mockResolvedValue(undefined)}
-        onSetActiveTab={vi.fn()}
       />,
     );
 
@@ -178,7 +177,6 @@ describe("JobDetailPanel", () => {
         selectedJob={null}
         onSelectJobId={vi.fn()}
         onJobUpdated={vi.fn().mockResolvedValue(undefined)}
-        onSetActiveTab={vi.fn()}
       />,
     );
 
@@ -195,7 +193,6 @@ describe("JobDetailPanel", () => {
         })}
         onSelectJobId={vi.fn()}
         onJobUpdated={vi.fn().mockResolvedValue(undefined)}
-        onSetActiveTab={vi.fn()}
       />,
     );
 
@@ -213,7 +210,6 @@ describe("JobDetailPanel", () => {
         selectedJob={createJob({ jobDescription: "Original" })}
         onSelectJobId={vi.fn()}
         onJobUpdated={onJobUpdated}
-        onSetActiveTab={vi.fn()}
       />,
     );
 
@@ -245,7 +241,6 @@ describe("JobDetailPanel", () => {
         selectedJob={createJob({ status: "ready" })}
         onSelectJobId={vi.fn()}
         onJobUpdated={onJobUpdated}
-        onSetActiveTab={vi.fn()}
       />,
     );
 
@@ -268,7 +263,6 @@ describe("JobDetailPanel", () => {
         selectedJob={createJob({ status: "ready" })}
         onSelectJobId={vi.fn()}
         onJobUpdated={onJobUpdated}
-        onSetActiveTab={vi.fn()}
       />,
     );
 
