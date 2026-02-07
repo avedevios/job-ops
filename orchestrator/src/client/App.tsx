@@ -34,7 +34,7 @@ export const App: React.FC = () => {
     <>
       <OnboardingGate />
       {demoInfo?.demoMode && (
-        <div className="fixed inset-x-0 top-0 z-[2147483647] border-b border-amber-400/50 bg-amber-500/20 px-4 py-2 text-center text-xs text-amber-100 backdrop-blur">
+        <div className="w-full border-b border-amber-400/50 bg-amber-500/20 px-4 py-2 text-center text-xs text-amber-100 backdrop-blur">
           Demo mode: integrations are simulated and data resets every{" "}
           {demoInfo.resetCadenceHours} hours.
         </div>
