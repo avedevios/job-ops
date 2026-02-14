@@ -1,4 +1,4 @@
-# JobOps ✨ AI Job Hunter & Resume Tailor
+# JobOps ✨ Your Ironman Suit for Job Hunting
 
 **Automate the hunt.** Scrapes major job boards (LinkedIn, Indeed, Glassdoor), **AI-scores suitability**, **tailors resumes** (RxResume), and **tracks application emails** automatically.
 
