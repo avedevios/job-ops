@@ -52,6 +52,17 @@ describe("automatic-run utilities", () => {
     expect(cap).toBeLessThanOrEqual(750);
   });
 
+  it("assigns a dedicated startupjobs max-jobs limit", () => {
+    const limits = deriveExtractorLimits({
+      budget: 120,
+      searchTerms: ["backend", "platform"],
+      sources: ["startupjobs"],
+    });
+
+    expect(limits.startupjobsMaxJobsPerTerm).toBeGreaterThan(0);
+    expect(limits.startupjobsMaxJobsPerTerm).toBeLessThanOrEqual(120);
+  });
+
   it("returns zero estimate when no search terms are provided", () => {
     const estimate = calculateAutomaticEstimate({
       values: {
@@ -107,6 +118,23 @@ describe("automatic-run utilities", () => {
         cityLocations: [],
       },
       sources: ["hiringcafe"],
+    });
+
+    expect(estimate.discovered.cap).toBeGreaterThan(0);
+    expect(estimate.discovered.cap).toBeLessThanOrEqual(120);
+  });
+
+  it("includes startupjobs in estimate caps using the shared term budget", () => {
+    const estimate = calculateAutomaticEstimate({
+      values: {
+        topN: 10,
+        minSuitabilityScore: 50,
+        searchTerms: ["backend", "platform"],
+        runBudget: 120,
+        country: "united kingdom",
+        cityLocations: [],
+      },
+      sources: ["startupjobs"],
     });
 
     expect(estimate.discovered.cap).toBeGreaterThan(0);
