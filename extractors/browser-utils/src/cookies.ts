@@ -1,8 +1,12 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { BrowserContext, Cookie } from "playwright";
 
-/** Cookies worth persisting — CF clearance and common session cookies. */
+/**
+ * Cookies worth persisting — CF clearance and common session cookies.
+ * cf_clearance is the main one: it proves the browser passed a challenge.
+ * The others are supporting cookies CF uses during challenge flow.
+ */
 const PERSIST_COOKIE_NAMES = new Set([
   "cf_clearance",
   "__cf_bm",
@@ -15,6 +19,12 @@ interface PersistedCookieJar {
   extractorId: string;
   savedAt: string;
   cookies: Cookie[];
+  userAgent?: string;
+}
+
+export interface CookieJarInfo {
+  hasCookies: boolean;
+  userAgent?: string;
 }
 
 function cookiePath(storageDir: string, extractorId: string): string {
@@ -96,4 +106,44 @@ export async function loadCookies(
 
   await context.addCookies(valid);
   return valid.length;
+}
+
+/**
+ * Reads cookie jar metadata without needing a Playwright BrowserContext.
+ * Use this to check whether valid cookies exist and retrieve the persisted
+ * User-Agent before creating a browser context (Playwright requires UA at
+ * `newContext()` time).
+ */
+export async function readCookieJar(
+  extractorId: string,
+  storageDir = "./storage",
+): Promise<CookieJarInfo> {
+  const path = cookiePath(storageDir, extractorId);
+
+  let jar: PersistedCookieJar;
+  try {
+    const data = await readFile(path, "utf-8");
+    jar = JSON.parse(data) as PersistedCookieJar;
+  } catch {
+    return { hasCookies: false };
+  }
+
+  const hasValid = jar.cookies.some((c) => !isExpired(c));
+  return { hasCookies: hasValid, userAgent: jar.userAgent };
+}
+
+/**
+ * Deletes the cookie jar file for an extractor.
+ * Call this when cookies are known to be stale (e.g. after a CF re-challenge).
+ */
+export async function invalidateCookies(
+  extractorId: string,
+  storageDir = "./storage",
+): Promise<void> {
+  const path = cookiePath(storageDir, extractorId);
+  try {
+    await unlink(path);
+  } catch {
+    // File doesn't exist — nothing to invalidate
+  }
 }

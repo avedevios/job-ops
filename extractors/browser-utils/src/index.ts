@@ -17,7 +17,13 @@ export {
   navigateWithChallenge,
   waitForChallengeResolution,
 } from "./challenge.js";
-export { loadCookies, saveCookies } from "./cookies.js";
+export {
+  type CookieJarInfo,
+  invalidateCookies,
+  loadCookies,
+  readCookieJar,
+  saveCookies,
+} from "./cookies.js";
 export {
   type BrowserLaunchOptions,
   createLaunchOptions,
@@ -29,4 +35,4 @@ export {
   type RetryOptions,
   withRetry,
 } from "./retry.js";
-export { solveChallenge, type SolverResult } from "./solver.js";
+export { type SolverResult, solveChallenge } from "./solver.js";
