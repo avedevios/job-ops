@@ -20,6 +20,7 @@ interface PipelineProgress {
   step:
     | "idle"
     | "crawling"
+    | "challenge_required"
     | "importing"
     | "scoring"
     | "processing"
@@ -28,6 +29,11 @@ interface PipelineProgress {
     | "failed";
   message: string;
   detail?: string;
+  pendingChallenges?: Array<{
+    extractorId: string;
+    extractorName: string;
+    url: string;
+  }>;
   crawlingSource: string | null;
   crawlingSourcesCompleted: number;
   crawlingSourcesTotal: number;
@@ -62,6 +68,7 @@ interface PipelineProgressProps {
 const stepLabels: Record<PipelineProgress["step"], string> = {
   idle: "Ready",
   crawling: "Crawling",
+  challenge_required: "Challenge",
   importing: "Importing",
   scoring: "Scoring",
   processing: "Processing",
@@ -73,6 +80,7 @@ const stepLabels: Record<PipelineProgress["step"], string> = {
 const stepBadgeClasses: Record<PipelineProgress["step"], string> = {
   idle: "bg-muted text-muted-foreground border-border",
   crawling: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  challenge_required: "bg-orange-500/10 text-orange-400 border-orange-500/20",
   importing: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   scoring: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   processing: "bg-primary/10 text-primary border-primary/20",
@@ -100,6 +108,8 @@ export const PipelineProgress: React.FC<PipelineProgressProps> = ({
     if (!progress) return 0;
 
     switch (progress.step) {
+      case "challenge_required":
+        return 15;
       case "crawling": {
         if (progress.crawlingTermsTotal > 0) {
           return clamp(

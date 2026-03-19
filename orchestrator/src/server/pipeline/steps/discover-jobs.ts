@@ -15,14 +15,21 @@ import {
   resolveSearchCities,
   shouldApplyStrictCityFilter,
 } from "@shared/search-cities.js";
+import type { ExtractorSourceId } from "@shared/extractors";
 import type { CreateJobInput, PipelineConfig } from "@shared/types";
-import { type CrawlSource, progressHelpers, updateProgress } from "../progress";
+import {
+  type CrawlSource,
+  type PendingChallenge,
+  progressHelpers,
+  updateProgress,
+} from "../progress";
 
 const DISCOVERY_CONCURRENCY = 3;
 
 type DiscoveryTaskResult = {
   discoveredJobs: CreateJobInput[];
   sourceErrors: string[];
+  challenge?: PendingChallenge;
 };
 
 type DiscoverySourceTask = {
@@ -83,6 +90,7 @@ export async function discoverJobsStep(args: {
 }): Promise<{
   discoveredJobs: CreateJobInput[];
   sourceErrors: string[];
+  pendingChallenges: PendingChallenge[];
 }> {
   logger.info("Running discovery step");
 
@@ -226,6 +234,14 @@ export async function discoverJobsStep(args: {
             sourceErrors: [
               `${manifest.displayName || manifest.id}: ${result.error ?? "unknown error"} (sources: ${grouped.sources.join(",")})`,
             ],
+            challenge: result.challengeRequired
+              ? {
+                  extractorId: manifest.id,
+                  extractorName: manifest.displayName || manifest.id,
+                  url: result.challengeRequired,
+                  sources: grouped.sources as ExtractorSourceId[],
+                }
+              : undefined,
           };
         }
 
@@ -243,7 +259,7 @@ export async function discoverJobsStep(args: {
   progressHelpers.startCrawling(totalSources);
 
   if (args.shouldCancel?.()) {
-    return { discoveredJobs, sourceErrors };
+    return { discoveredJobs, sourceErrors, pendingChallenges: [] };
   }
 
   const sourceResults = await asyncPool({
@@ -284,9 +300,13 @@ export async function discoverJobsStep(args: {
     },
   });
 
+  const pendingChallenges: PendingChallenge[] = [];
   for (const sourceResult of sourceResults) {
     discoveredJobs.push(...sourceResult.discoveredJobs);
     sourceErrors.push(...sourceResult.sourceErrors);
+    if (sourceResult.challenge) {
+      pendingChallenges.push(sourceResult.challenge);
+    }
   }
 
   const requestedCities = resolveSearchCities({
@@ -339,10 +359,13 @@ export async function discoverJobsStep(args: {
   }
 
   if (args.shouldCancel?.()) {
-    return { discoveredJobs: filteredDiscoveredJobs, sourceErrors };
+    return { discoveredJobs: filteredDiscoveredJobs, sourceErrors, pendingChallenges };
   }
 
-  if (filteredDiscoveredJobs.length === 0 && sourceErrors.length > 0) {
+  // Don't throw "all sources failed" when challenges are pending — the
+  // orchestrator will pause, let the user solve them, then re-run those
+  // extractors.  Jobs from non-challenged extractors (if any) are kept.
+  if (filteredDiscoveredJobs.length === 0 && sourceErrors.length > 0 && pendingChallenges.length === 0) {
     throw new Error(`All sources failed: ${sourceErrors.join("; ")}`);
   }
 
@@ -350,7 +373,11 @@ export async function discoverJobsStep(args: {
     logger.warn("Some discovery sources failed", { sourceErrors });
   }
 
-  progressHelpers.crawlingComplete(filteredDiscoveredJobs.length);
+  // Don't transition to "importing" yet if there are challenges to solve —
+  // the orchestrator will pause and re-run after challenges are resolved.
+  if (pendingChallenges.length === 0) {
+    progressHelpers.crawlingComplete(filteredDiscoveredJobs.length);
+  }
 
-  return { discoveredJobs: filteredDiscoveredJobs, sourceErrors };
+  return { discoveredJobs: filteredDiscoveredJobs, sourceErrors, pendingChallenges };
 }
