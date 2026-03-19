@@ -4,6 +4,7 @@ import { getExtractorRegistry } from "@server/extractors/registry";
 import { getAllJobUrls } from "@server/repositories/jobs";
 import * as settingsRepo from "@server/repositories/settings";
 import { asyncPool } from "@server/utils/async-pool";
+import type { ExtractorSourceId } from "@shared/extractors";
 import {
   formatCountryLabel,
   isSourceAllowedForCountry,
@@ -15,7 +16,6 @@ import {
   resolveSearchCities,
   shouldApplyStrictCityFilter,
 } from "@shared/search-cities.js";
-import type { ExtractorSourceId } from "@shared/extractors";
 import type { CreateJobInput, PipelineConfig } from "@shared/types";
 import {
   type CrawlSource,
@@ -300,6 +300,9 @@ export async function discoverJobsStep(args: {
     },
   });
 
+  // Collect challenges after ALL extractors finish, not on first failure.
+  // This way the user sees every challenged site at once and can solve them
+  // in a single batch, rather than solve-one → re-run → hit-next → solve-again.
   const pendingChallenges: PendingChallenge[] = [];
   for (const sourceResult of sourceResults) {
     discoveredJobs.push(...sourceResult.discoveredJobs);
@@ -359,13 +362,21 @@ export async function discoverJobsStep(args: {
   }
 
   if (args.shouldCancel?.()) {
-    return { discoveredJobs: filteredDiscoveredJobs, sourceErrors, pendingChallenges };
+    return {
+      discoveredJobs: filteredDiscoveredJobs,
+      sourceErrors,
+      pendingChallenges,
+    };
   }
 
   // Don't throw "all sources failed" when challenges are pending — the
   // orchestrator will pause, let the user solve them, then re-run those
   // extractors.  Jobs from non-challenged extractors (if any) are kept.
-  if (filteredDiscoveredJobs.length === 0 && sourceErrors.length > 0 && pendingChallenges.length === 0) {
+  if (
+    filteredDiscoveredJobs.length === 0 &&
+    sourceErrors.length > 0 &&
+    pendingChallenges.length === 0
+  ) {
     throw new Error(`All sources failed: ${sourceErrors.join("; ")}`);
   }
 
@@ -379,5 +390,9 @@ export async function discoverJobsStep(args: {
     progressHelpers.crawlingComplete(filteredDiscoveredJobs.length);
   }
 
-  return { discoveredJobs: filteredDiscoveredJobs, sourceErrors, pendingChallenges };
+  return {
+    discoveredJobs: filteredDiscoveredJobs,
+    sourceErrors,
+    pendingChallenges,
+  };
 }
