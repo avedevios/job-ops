@@ -1,0 +1,99 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import type { BrowserContext, Cookie } from "playwright";
+
+/** Cookies worth persisting — CF clearance and common session cookies. */
+const PERSIST_COOKIE_NAMES = new Set([
+  "cf_clearance",
+  "__cf_bm",
+  "cf_chl_2",
+  "cf_chl_prog",
+  "__cflb",
+]);
+
+interface PersistedCookieJar {
+  extractorId: string;
+  savedAt: string;
+  cookies: Cookie[];
+}
+
+function cookiePath(storageDir: string, extractorId: string): string {
+  return `${storageDir}/${extractorId}-cookies.json`;
+}
+
+function isExpired(cookie: Cookie): boolean {
+  // expires = -1 means session cookie (no expiry) — keep it, it's still valid
+  // for the current process lifetime
+  if (cookie.expires === -1) return false;
+  return cookie.expires < Date.now() / 1000;
+}
+
+/**
+ * Saves the browser context's cookies to disk, filtered to CF-relevant cookies.
+ * Call this after a successful navigation through a CF challenge.
+ *
+ * @param context - Playwright browser context to extract cookies from
+ * @param extractorId - Unique extractor name (used as filename prefix)
+ * @param storageDir - Directory to store cookie files (default: ./storage)
+ */
+export async function saveCookies(
+  context: BrowserContext,
+  extractorId: string,
+  storageDir = "./storage",
+): Promise<void> {
+  const allCookies = await context.cookies();
+
+  // Keep CF-related cookies plus any with "session" or "auth" in the name
+  const relevant = allCookies.filter(
+    (c) =>
+      PERSIST_COOKIE_NAMES.has(c.name) ||
+      c.name.toLowerCase().includes("session") ||
+      c.name.toLowerCase().includes("auth"),
+  );
+
+  if (relevant.length === 0) return;
+
+  const jar: PersistedCookieJar = {
+    extractorId,
+    savedAt: new Date().toISOString(),
+    cookies: relevant,
+  };
+
+  const path = cookiePath(storageDir, extractorId);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify(jar, null, 2));
+}
+
+/**
+ * Loads previously saved cookies into a browser context.
+ * Skips expired cookies automatically.
+ *
+ * Call this before navigating to a CF-protected site — if we have a valid
+ * cf_clearance cookie from a previous run, the challenge may be skipped entirely.
+ *
+ * @param context - Playwright browser context to inject cookies into
+ * @param extractorId - Must match the ID used when saving
+ * @param storageDir - Directory where cookie files are stored (default: ./storage)
+ * @returns Number of cookies loaded (0 if no saved cookies or all expired)
+ */
+export async function loadCookies(
+  context: BrowserContext,
+  extractorId: string,
+  storageDir = "./storage",
+): Promise<number> {
+  const path = cookiePath(storageDir, extractorId);
+
+  let jar: PersistedCookieJar;
+  try {
+    const data = await readFile(path, "utf-8");
+    jar = JSON.parse(data) as PersistedCookieJar;
+  } catch {
+    return 0; // no saved cookies
+  }
+
+  const valid = jar.cookies.filter((c) => !isExpired(c));
+  if (valid.length === 0) return 0;
+
+  await context.addCookies(valid);
+  return valid.length;
+}
