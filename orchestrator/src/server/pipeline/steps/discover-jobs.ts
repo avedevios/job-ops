@@ -381,7 +381,14 @@ export async function discoverJobsStep(args: {
   }
 
   if (sourceErrors.length > 0) {
-    logger.warn("Some discovery sources failed", { sourceErrors });
+    if (pendingChallenges.length > 0) {
+      logger.info("Some discovery sources hit challenges and will be retried", {
+        sourceErrors,
+        pendingChallenges,
+      });
+    } else {
+      logger.warn("Some discovery sources failed", { sourceErrors });
+    }
   }
 
   // Don't transition to "importing" yet if there are challenges to solve —

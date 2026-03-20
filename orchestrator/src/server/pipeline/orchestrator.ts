@@ -547,6 +547,16 @@ export function requestPipelineCancel(): {
   }
 
   cancelRequestedAt = new Date().toISOString();
+
+  // Unblock the challenge pause if the pipeline is waiting for human solving.
+  // Without this, cancellation during challenge_required would leave the
+  // pipeline stuck until challenges are solved or the server restarts.
+  // ensureNotCancelled() fires immediately after the Promise resolves.
+  if (activeChallengeState) {
+    activeChallengeState.resolve();
+    activeChallengeState = null;
+  }
+
   return {
     accepted: true,
     pipelineRunId,
