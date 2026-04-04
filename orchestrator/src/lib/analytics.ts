@@ -36,6 +36,8 @@ type ProductEventMap = {
     country?: string;
     has_city_locations?: boolean;
     search_terms_count?: number;
+    manual_import_source?: "pasted_description" | "fetched_url";
+    manual_import_source_host?: string;
   };
   jobs_pipeline_run_cancel_requested: {
     was_running: boolean;
