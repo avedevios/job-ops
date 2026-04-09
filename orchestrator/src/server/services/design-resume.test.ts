@@ -321,4 +321,16 @@ describe("design resume service", () => {
       "/tmp/job-ops-test/design-resume/assets/old-picture.png",
     );
   });
+
+  it("rejects importing a v4 Reactive Resume source", async () => {
+    vi.mocked(getResume).mockResolvedValueOnce({
+      id: "rx-1",
+      mode: "v4",
+      data: {},
+    } as never);
+
+    await expect(importDesignResumeFromReactiveResume()).rejects.toThrow(
+      "Design Resume import now requires a Reactive Resume v5 source",
+    );
+  });
 });

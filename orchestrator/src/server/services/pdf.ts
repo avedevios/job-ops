@@ -23,7 +23,11 @@ import {
   prepareTailoredResumeForPdf,
 } from "./rxresume";
 import { getConfiguredRxResumeBaseResumeId } from "./rxresume/baseResumeId";
-import { normalizeReactiveResumeV5Document } from "./rxresume/document";
+import {
+  convertV4ResumeToReactiveResumeV5Document,
+  mergeReactiveResumeV5Content,
+  normalizeReactiveResumeV5Document,
+} from "./rxresume/document";
 
 const OUTPUT_DIR = join(getDataDir(), "pdfs");
 
@@ -127,14 +131,128 @@ async function renderRxResumePdf(args: {
   }
 }
 
-async function loadBaseResumeSource(): Promise<{
+function normalizeResumeForReactiveResumeV5(args: {
+  resumeData: Record<string, unknown>;
+  mode: "v4" | "v5";
+  requestOrigin?: string | null;
+}): Record<string, unknown> {
+  return (
+    args.mode === "v4"
+      ? convertV4ResumeToReactiveResumeV5Document(args.resumeData, {
+          requestOrigin: args.requestOrigin ?? null,
+        })
+      : normalizeReactiveResumeV5Document(args.resumeData, {
+          requestOrigin: args.requestOrigin ?? null,
+        })
+  ) as Record<string, unknown>;
+}
+
+async function resolveDesignResumeForRenderer(args: {
+  renderer: PdfRenderer;
+  requestOrigin?: string | null;
+}): Promise<{
+  documentId: string;
+  title: string;
+  data: Record<string, unknown>;
+  mode: "v4" | "v5";
+}> {
+  const designResume = await getCurrentDesignResume();
+  if (!designResume?.resumeJson) {
+    throw notFound("Design Resume has not been imported yet.");
+  }
+
+  const localDocument = normalizeReactiveResumeV5Document(
+    designResume.resumeJson as Record<string, unknown>,
+    { requestOrigin: args.requestOrigin ?? null },
+  ) as Record<string, unknown>;
+
+  if (
+    args.renderer !== "rxresume" ||
+    !designResume.sourceResumeId ||
+    !designResume.sourceMode
+  ) {
+    return {
+      documentId: designResume.id,
+      title: designResume.title,
+      data: localDocument,
+      mode: "v5",
+    };
+  }
+
+  try {
+    if (designResume.sourceMode !== "v5") {
+      throw new Error(
+        "Reactive Resume rendering now requires a v5 source resume. Reconnect Reactive Resume with v5 and re-import your Design Resume.",
+      );
+    }
+
+    const upstreamResume = await getRxResume(designResume.sourceResumeId, {
+      mode: designResume.sourceMode,
+    });
+
+    if (!upstreamResume.data || typeof upstreamResume.data !== "object") {
+      throw new Error("Reactive Resume base resume is empty or invalid.");
+    }
+
+    const upstreamDocument = normalizeResumeForReactiveResumeV5({
+      resumeData: upstreamResume.data as Record<string, unknown>,
+      mode: "v5",
+      requestOrigin: args.requestOrigin ?? null,
+    });
+
+    return {
+      documentId: designResume.id,
+      title: designResume.title,
+      data: mergeReactiveResumeV5Content(upstreamDocument, localDocument, {
+        requestOrigin: args.requestOrigin ?? null,
+      }) as Record<string, unknown>,
+      mode: "v5",
+    };
+  } catch (error) {
+    logger.warn(
+      "Failed to refresh Reactive Resume template metadata for Design Resume rendering",
+      {
+        documentId: designResume.id,
+        sourceResumeId: designResume.sourceResumeId,
+        sourceMode: designResume.sourceMode,
+        error,
+      },
+    );
+
+    return {
+      documentId: designResume.id,
+      title: designResume.title,
+      data: localDocument,
+      mode: "v5",
+    };
+  }
+}
+
+async function loadBaseResumeSource(args: {
+  renderer: PdfRenderer;
+  requestOrigin?: string | null;
+}): Promise<{
   data: Record<string, unknown>;
   mode: "v4" | "v5";
 }> {
   const designResume = await getCurrentDesignResume();
   if (designResume?.resumeJson) {
+    if (args.renderer === "rxresume") {
+      const resolved = await resolveDesignResumeForRenderer({
+        renderer: args.renderer,
+        requestOrigin: args.requestOrigin ?? null,
+      });
+      return {
+        data: resolved.data,
+        mode: resolved.mode,
+      };
+    }
+
     return {
-      data: designResume.resumeJson as Record<string, unknown>,
+      data: normalizeReactiveResumeV5Document(
+        designResume.resumeJson as Record<string, unknown>,
+        { requestOrigin: args.requestOrigin ?? null },
+      ) as Record<string, unknown>,
       mode: "v5",
     };
   }
@@ -152,6 +270,12 @@ async function loadBaseResumeSource(): Promise<{
   }
   if (baseResume.mode !== "v4" && baseResume.mode !== "v5") {
     throw new Error("Reactive Resume returned an unsupported resume mode.");
+  }
+
+  if (args.renderer === "rxresume" && baseResume.mode !== "v5") {
+    throw new Error(
+      "Reactive Resume rendering now requires a v5 base resume. Reconnect Reactive Resume with v5 and select a v5 base resume in Settings.",
+    );
   }
 
   return {
@@ -185,7 +309,10 @@ export async function generatePdf(
     // Ensure output directory exists
     await ensureOutputDir();
 
-    const baseResume = await loadBaseResumeSource();
+    const baseResume = await loadBaseResumeSource({
+      renderer,
+      requestOrigin: options?.requestOrigin ?? null,
+    });
 
     let preparedResume: Awaited<
       ReturnType<typeof prepareTailoredResumeForPdf>
@@ -240,20 +367,17 @@ export async function generatePdf(
 export async function generateDesignResumePdf(options?: {
   requestOrigin?: string | null;
 }): Promise<DesignResumePdfResponse> {
-  const designResume = await getCurrentDesignResume();
-  if (!designResume?.resumeJson) {
-    throw notFound("Design Resume has not been imported yet.");
-  }
-
   const renderer = await resolvePdfRenderer();
+  const designResume = await resolveDesignResumeForRenderer({
+    renderer,
+    requestOrigin: options?.requestOrigin ?? null,
+  });
   const generatedAt = new Date().toISOString();
   const outputFileName = "design_resume_current.pdf";
   const outputPath = join(OUTPUT_DIR, outputFileName);
   const preparedResume: PreparedRxResumePdfPayload = {
-    mode: "v5",
-    data: structuredClone(
-      designResume.resumeJson as Record<string, unknown>,
-    ) as Record<string, unknown>,
+    mode: designResume.mode,
+    data: structuredClone(designResume.data) as Record<string, unknown>,
     projectCatalog: [],
     selectedProjectIds: [],
   };
@@ -262,12 +386,12 @@ export async function generateDesignResumePdf(options?: {
 
   logger.info("Generating Design Resume PDF", {
     renderer,
-    documentId: designResume.id,
+    documentId: designResume.documentId,
   });
 
   if (renderer === "latex") {
     await renderResumePdf({
-      resumeJson: designResume.resumeJson as Record<string, unknown>,
+      resumeJson: designResume.data,
       outputPath,
       jobId: "design-resume",
     });

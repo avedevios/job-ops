@@ -151,7 +151,7 @@ vi.mock("./tracer-links", () => ({
 
 vi.mock("./rxresume/baseResumeId", () => ({
   getConfiguredRxResumeBaseResumeId: vi.fn().mockResolvedValue({
-    mode: "v4",
+    mode: "v5",
     resumeId: "base-resume-id",
   }),
 }));
@@ -172,7 +172,7 @@ vi.mock("./rxresume", async () => {
     getResume: vi.fn().mockResolvedValue({
       id: "base-resume-id",
       name: "Base Resume",
-      mode: "v4",
+      mode: "v5",
       data: mockProfile,
     }),
     prepareTailoredResumeForPdf: vi
@@ -220,7 +220,7 @@ vi.mock("./rxresume", async () => {
         }
 
         return {
-          mode: "v4",
+          mode: "v5",
           data,
           projectCatalog: [],
           selectedProjectIds: [...selectedSet],
@@ -363,10 +363,10 @@ describe("PDF Service Tailoring Logic", () => {
           name: "JobOps Tailored Resume job-rxresume",
           data: expect.any(Object),
         },
-        { mode: "v4" },
+        { mode: "v5" },
       );
       expect(rxresume.exportResumePdf).toHaveBeenCalledWith("temp-resume-id", {
-        mode: "v4",
+        mode: "v5",
       });
       expect(fetchMock).toHaveBeenCalledWith(
         "https://pdf.rxresume.test/print/123",
@@ -376,7 +376,7 @@ describe("PDF Service Tailoring Logic", () => {
         expect.any(Uint8Array),
       );
       expect(rxresume.deleteResume).toHaveBeenCalledWith("temp-resume-id", {
-        mode: "v4",
+        mode: "v5",
       });
     } finally {
       vi.unstubAllGlobals();

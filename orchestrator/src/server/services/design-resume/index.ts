@@ -382,6 +382,11 @@ export async function importDesignResumeFromReactiveResume(): Promise<DesignResu
   }
 
   const sourceMode = upstreamResume.mode ?? "v5";
+  if (sourceMode !== "v5") {
+    throw badRequest(
+      "Design Resume import now requires a Reactive Resume v5 source. Reconnect Reactive Resume with v5 and try again.",
+    );
+  }
   const normalized = normalizeImportedResume(upstreamResume.data, sourceMode);
   const now = new Date().toISOString();
   const saved = await designResumeRepo.upsertDesignResumeDocument({

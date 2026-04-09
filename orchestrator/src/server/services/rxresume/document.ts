@@ -265,6 +265,7 @@ function buildMetadata(
   source: RecordLike,
   publicBaseUrl: string | null,
 ): RecordLike {
+  console.log("Building metadata with source:", source, "and publicBaseUrl:", publicBaseUrl);
   const metadata = asRecord(source.metadata) ?? {};
   const layout = asRecord(metadata.layout);
   const css = asRecord(metadata.css);
@@ -299,13 +300,13 @@ function buildMetadata(
       value: toText(css?.value),
     },
     page: {
-      gapX: toNumber(page?.gapX, 24),
-      gapY: toNumber(page?.gapY, 24),
-      marginX: toNumber(page?.marginX, toNumber(page?.margin, 18)),
-      marginY: toNumber(page?.marginY, toNumber(page?.margin, 18)),
+      gapX: toNumber(page?.gapX, 4),
+      gapY: toNumber(page?.gapY, 6),
+      marginX: toNumber(page?.marginX, toNumber(page?.margin, 20)),
+      marginY: toNumber(page?.marginY, toNumber(page?.margin, 20)),
       format: VALID_PAGE_FORMATS.has(toText(page?.format))
         ? toText(page?.format)
-        : "a4",
+        : "free-form",
       locale: toText(page?.locale, "en-US"),
       hideIcons: toBoolean(
         page?.hideIcons,
@@ -387,6 +388,7 @@ export function normalizeReactiveResumeV5Document(
   input: unknown,
   options: { requestOrigin?: string | null } = {},
 ): RecordLike {
+  console.log("Normalizing Reactive Resume V5 Document with input:", input, "and options:", options);
   const source = asRecord(input) ?? {};
   const basics = asRecord(source.basics) ?? {};
   const picture = asRecord(source.picture) ?? {};
@@ -647,6 +649,24 @@ export function normalizeReactiveResumeV5Document(
       structuredClone(section),
     ) as unknown[],
     metadata: buildMetadata(source, publicBaseUrl),
+  };
+}
+
+export function mergeReactiveResumeV5Content(
+  templateInput: unknown,
+  contentInput: unknown,
+  options: { requestOrigin?: string | null } = {},
+): RecordLike {
+  const template = normalizeReactiveResumeV5Document(templateInput, options);
+  const content = normalizeReactiveResumeV5Document(contentInput, options);
+
+  return {
+    ...template,
+    picture: structuredClone(content.picture),
+    basics: structuredClone(content.basics),
+    summary: structuredClone(content.summary),
+    sections: structuredClone(content.sections),
+    customSections: structuredClone(content.customSections),
   };
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDefaultReactiveResumeDocument,
   convertV4ResumeToReactiveResumeV5Document,
+  mergeReactiveResumeV5Content,
   normalizeReactiveResumeV5Document,
 } from "./document";
 import { sampleResume } from "./schema/v4";
@@ -144,5 +145,113 @@ describe("rxresume document normalization", () => {
         >
       ).format,
     );
+  });
+
+  it("preserves template metadata while overlaying local editable content", () => {
+    const merged = mergeReactiveResumeV5Content(
+      {
+        metadata: {
+          template: "onyx",
+          layout: {
+            sidebarWidth: 35,
+            pages: [
+              {
+                fullWidth: false,
+                main: ["summary", "experience"],
+                sidebar: ["profiles", "skills"],
+              },
+            ],
+          },
+          css: { enabled: true, value: "a { text-decoration: underline; }" },
+          page: {
+            gapX: 4,
+            gapY: 6,
+            marginX: 20,
+            marginY: 20,
+            format: "free-form",
+            locale: "en-US",
+            hideIcons: true,
+          },
+          design: {
+            level: { icon: "address-book-tabs", type: "hidden" },
+            colors: {
+              primary: "rgba(71, 85, 105, 1)",
+              text: "rgba(0, 0, 0, 1)",
+              background: "rgba(255, 255, 255, 1)",
+            },
+          },
+          typography: {
+            body: {
+              fontFamily: "IBM Plex Sans",
+              fontWeights: ["400"],
+              fontSize: 10,
+              lineHeight: 1.75,
+            },
+            heading: {
+              fontFamily: "IBM Plex Sans",
+              fontWeights: ["600"],
+              fontSize: 12.75,
+              lineHeight: 1.75,
+            },
+          },
+          notes: "",
+        },
+      },
+      {
+        basics: {
+          name: "Shaheer",
+          headline: "Software Engineer",
+          email: "shaheer@example.com",
+          phone: "+44 123",
+          location: "Blackpool",
+          website: { label: "site", url: "https://example.com" },
+          customFields: [],
+        },
+        summary: {
+          title: "Summary",
+          columns: 1,
+          hidden: false,
+          content: "<p>Hello</p>",
+        },
+      },
+    );
+
+    expect((merged.basics as Record<string, unknown>).name).toBe("Shaheer");
+    expect(
+      (
+        (merged.metadata as Record<string, unknown>).page as Record<
+          string,
+          unknown
+        >
+      ).gapX,
+    ).toBe(4);
+    expect(
+      (
+        (merged.metadata as Record<string, unknown>).page as Record<
+          string,
+          unknown
+        >
+      ).format,
+    ).toBe("free-form");
+    expect(
+      (
+        (
+          (merged.metadata as Record<string, unknown>).design as Record<
+            string,
+            unknown
+          >
+        ).level as Record<string, unknown>
+      ).icon,
+    ).toBe("address-book-tabs");
+    expect(
+      (
+        (
+          (merged.metadata as Record<string, unknown>).typography as Record<
+            string,
+            unknown
+          >
+        ).body as Record<string, unknown>
+      ).fontSize,
+    ).toBe(10);
   });
 });
