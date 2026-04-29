@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { Server } from "node:http";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
@@ -624,7 +624,12 @@ describe.sequential("Jobs API routes", () => {
       }),
     });
     const body = await res.json();
-    const storedPath = join(tempDir, "pdfs", `resume_${job.id}.pdf`);
+    const storedPath = join(
+      tempDir,
+      "pdfs",
+      "tenant_default",
+      `resume_${job.id}.pdf`,
+    );
 
     expect(res.status).toBe(201);
     expect(body.ok).toBe(true);
@@ -661,6 +666,31 @@ describe.sequential("Jobs API routes", () => {
     expect(body.error.code).toBe("INVALID_REQUEST");
     expect(body.error.message).toMatch(/valid pdf/i);
     expect(typeof body.meta.requestId).toBe("string");
+  });
+
+  it("serves legacy job PDFs when pdfPath is not set", async () => {
+    const { createJob } = await import("@server/repositories/jobs");
+    const { getLegacyJobPdfPath } = await import(
+      "@server/services/pdf-storage"
+    );
+    const job = await createJob({
+      source: "manual",
+      title: "Legacy PDF Role",
+      employer: "Acme",
+      jobUrl: "https://example.com/job/legacy-pdf-role",
+      jobDescription: "Legacy PDF fallback coverage",
+    });
+
+    const legacyPdfPath = getLegacyJobPdfPath(job.id);
+    await mkdir(dirname(legacyPdfPath), { recursive: true });
+    await writeFile(legacyPdfPath, Buffer.from("%PDF-1.7\nLegacy resume\n"));
+
+    const res = await fetch(`${baseUrl}/api/jobs/${job.id}/pdf`);
+    const content = Buffer.from(await res.arrayBuffer()).toString("utf8");
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toContain("private");
+    expect(content).toContain("Legacy resume");
   });
 
   it("updates core job detail fields", async () => {

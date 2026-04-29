@@ -22,6 +22,7 @@ import {
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { downloadDesignResumePdf } from "@/client/lib/private-pdf";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -307,10 +308,7 @@ export const DesignResumePage: React.FC = () => {
     try {
       setPdfDownloading(true);
       const generated = await api.generateDesignResumePdf();
-      const anchor = window.document.createElement("a");
-      anchor.href = generated.pdfUrl;
-      anchor.download = generated.fileName;
-      anchor.click();
+      await downloadDesignResumePdf(generated.fileName);
       toast.success("Your PDF is ready.");
     } catch (downloadError) {
       toast.error(

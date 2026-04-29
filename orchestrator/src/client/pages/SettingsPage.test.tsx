@@ -54,6 +54,21 @@ vi.mock("../api", () => ({
   getBackups: vi.fn().mockResolvedValue({ backups: [], nextScheduled: null }),
   createManualBackup: vi.fn(),
   deleteBackup: vi.fn(),
+  getCurrentAuthUser: vi.fn().mockResolvedValue({
+    id: "user-1",
+    username: "test",
+    displayName: null,
+    isSystemAdmin: false,
+    isDisabled: false,
+    workspaceId: "tenant_default",
+    workspaceName: "JobOps",
+    createdAt: "2026-04-27T00:00:00.000Z",
+    updatedAt: "2026-04-27T00:00:00.000Z",
+  }),
+  listWorkspaceUsers: vi.fn().mockResolvedValue([]),
+  createWorkspaceUser: vi.fn(),
+  setWorkspaceUserDisabled: vi.fn(),
+  resetWorkspaceUserPassword: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -132,8 +147,8 @@ const openDisplaySection = async () => {
 };
 
 const openEnvironmentSection = async () => {
-  await openNavGroup(/^accounts & security$/i);
-  await clickLastButtonByName(/accounts & access/i);
+  await openNavGroup(/^workspaces & security$/i);
+  await clickLastButtonByName(/workspace access/i);
 };
 
 const openScoringSection = async () => {

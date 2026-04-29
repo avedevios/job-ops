@@ -1,7 +1,7 @@
 ---
 id: settings
 title: Settings
-description: Configure models, webhooks, accounts, backup behavior, scoring, and safety controls.
+description: Configure models, webhooks, workspaces, backup behavior, scoring, and safety controls.
 sidebar_position: 2
 ---
 
@@ -17,7 +17,7 @@ It lets you configure:
 - Webhook destinations and secret
 - Display and writing-style defaults
 - Editable prompt templates for core AI workflows
-- Service credentials and basic auth
+- Service credentials and workspace users
 - Reactive Resume project selection
 - Tracer Links readiness verification
 - Backup and scoring rules
@@ -168,13 +168,18 @@ Readiness requires:
 - successful reachability of `<public-base-url>/health`
 - non-localhost/non-private host setup for public redirect usage
 
-### Environment & Accounts
+### Environment & Workspaces
 
 - Configure service accounts:
   - RxResume API key
   - UKVisaJobs email/password
   - Adzuna app ID/app key
-  - Optional basic authentication for write operations
+- Manage workspace users when signed in as a system admin:
+  - create a user with a private workspace
+  - disable a user
+  - reset a user's password
+- Each created user gets a separate private workspace. Jobs, settings, resume data, integrations, PDFs, pipeline runs, chat, analytics, and post-application data are scoped to that user's workspace.
+- `BASIC_AUTH_USER` and `BASIC_AUTH_PASSWORD` are only used as legacy bootstrap credentials during migration. New sign-ins use database users.
 
 ### Backup
 
@@ -183,6 +188,7 @@ Readiness requires:
 - Enable/disable automatic daily backups
 - Configure backup hour (UTC) and max retained backups
 - Create or delete backups manually
+- Backup management is available only to system admins
 - See [Database Backups](../getting-started/database-backups) for full backup/restore guidance.
 
 ### Scoring Settings
@@ -245,6 +251,12 @@ curl -X POST "http://localhost:3001/api/backups"
 - Re-run scoring/tailoring/pipeline to validate effect.
 - In the **Model** section, the field preview and **Resolved config** update immediately when you choose a model, but the change only applies to future actions after you click **Save**.
 - Prompt-template changes only affect new Ghostwriter runs, new tailoring generations, and new scoring runs after you save.
+
+### I do not see workspace user controls
+
+- Workspace user management is shown only to system admins.
+- The first user created during first-run setup or legacy migration is the system admin.
+- Normal users can use their private workspace settings, but cannot create users, reset other passwords, or manage backups.
 
 ### AI behavior got worse after editing a prompt template
 
