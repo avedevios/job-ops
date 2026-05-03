@@ -1,4 +1,4 @@
-import { badRequest, notFound, toAppError } from "@infra/errors";
+import { badRequest, conflict, notFound, toAppError } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import {
   deleteDesignResumePicture,
@@ -9,11 +9,13 @@ import {
   readDesignResumeAssetContent,
   updateCurrentDesignResume,
   uploadDesignResumePicture,
+  uploadDesignResumePictureFile,
 } from "@server/services/design-resume";
 import { importDesignResumeFromFile } from "@server/services/design-resume/import-file";
 import { generateDesignResumePdf } from "@server/services/pdf";
 import { getTenantDesignResumePdfPath } from "@server/services/pdf-storage";
 import { clearProfileCache } from "@server/services/profile";
+import { getJobOpsPublicAvailability } from "@server/services/tracer-links";
 import type { DesignResumeJson, DesignResumePatchRequest } from "@shared/types";
 import { type Request, type Response, Router } from "express";
 import { z } from "zod";
@@ -54,6 +56,19 @@ function resolveRequestOrigin(req: Request): string | null {
 
   if (!host || !protocol) return null;
   return `${protocol}://${host}`;
+}
+
+async function assertPictureSupportEnabled(req: Request): Promise<void> {
+  const availability = await getJobOpsPublicAvailability({
+    requestOrigin: resolveRequestOrigin(req),
+    force: false,
+  });
+  if (availability.isPubliclyAvailable) return;
+
+  throw conflict(
+    availability.reason ??
+      "Design Resume pictures require JobOps to be reachable at a public URL.",
+  );
 }
 
 const addOperationSchema = z
@@ -164,6 +179,22 @@ const uploadSchema = pictureMutationSchema.extend({
   dataUrl: z.string().trim().min(1),
 });
 
+const rawUploadHeadersSchema = z.object({
+  fileName: z
+    .string()
+    .trim()
+    .min(1)
+    .max(255)
+    .transform((value) => {
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return value;
+      }
+    }),
+  baseRevision: z.coerce.number().int().min(1).optional(),
+});
+
 const importFileSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   mediaType: z.string().trim().min(1).max(200).optional(),
@@ -229,6 +260,24 @@ designResumeRouter.patch(
 designResumeRouter.post(
   "/assets",
   asyncRoute(async (req: Request, res: Response) => {
+    await assertPictureSupportEnabled(req);
+
+    if (Buffer.isBuffer(req.body)) {
+      const input = rawUploadHeadersSchema.parse({
+        fileName: req.header("x-file-name"),
+        baseRevision: req.header("x-base-revision"),
+      });
+      const document = await uploadDesignResumePictureFile({
+        fileName: input.fileName,
+        mimeType: req.header("content-type"),
+        data: req.body,
+        baseRevision: input.baseRevision,
+      });
+      clearProfileCache();
+      ok(res, document, 201);
+      return;
+    }
+
     const input = uploadSchema.parse(req.body);
     const document = await uploadDesignResumePicture({
       fileName: input.fileName,
@@ -263,7 +312,9 @@ designResumeRouter.get(
       return;
     }
 
-    const { asset, content } = await readDesignResumeAssetContent(assetId);
+    const { asset, content } = await readDesignResumeAssetContent(assetId, {
+      bypassTenantScope: true,
+    });
     res.setHeader("Content-Type", asset.mimeType);
     res.setHeader("Cache-Control", "private, max-age=60");
     res.send(content);
